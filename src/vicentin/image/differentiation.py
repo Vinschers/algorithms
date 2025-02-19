@@ -1,10 +1,4 @@
-import numpy as np
-
-try:
-    import jax.numpy as jnp
-except ImportError:
-    jnp = np
-
+from vicentin.utils import array, flip, roll
 from vicentin.image.utils import convolve
 
 
@@ -33,10 +27,7 @@ def finite_diffs(img, backward=False):
     """
     shift = 1 if backward else -1
 
-    if isinstance(img, jnp.ndarray):
-        return -shift * jnp.array([jnp.roll(img, shift, 1) - img, jnp.roll(img, shift, 0) - img])
-
-    return -shift * np.array([np.roll(img, shift, 1) - img, np.roll(img, shift, 0) - img])
+    return -shift * array([roll(img, shift, 1) - img, roll(img, shift, 0) - img])
 
 
 def sobel(img, backward=False):
@@ -58,17 +49,13 @@ def sobel(img, backward=False):
           - element 0 is the result of convolving img with the x-direction Sobel kernel,
           - element 1 is the result of convolving img with the y-direction Sobel kernel.
     """
-    sobel_x = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
-    sobel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+    sobel_x = array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
+    sobel_y = array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
 
     if backward:
-        sobel_x, sobel_y = np.flip(sobel_x), np.flip(sobel_y)
+        sobel_x, sobel_y = flip(sobel_x), flip(sobel_y)
 
-    if isinstance(img, jnp.ndarray):
-        sobel_x, sobel_y = jnp.array(sobel_x), jnp.array(sobel_y)
-        return jnp.array([convolve(img, sobel_x), convolve(img, sobel_y)])
-
-    return np.array([convolve(img, sobel_x), convolve(img, sobel_y)])
+    return array([convolve(img, sobel_x), convolve(img, sobel_y)])
 
 
 def canny(img, backward=False):

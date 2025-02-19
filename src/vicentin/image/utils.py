@@ -113,7 +113,7 @@ def convolve(img, kernel, mode="same"):
     numpy.ndarray or jax.numpy.ndarray
         The convolved image.
     """
-    if isinstance(img, jnp.ndarray) and isinstance(kernel, jnp.ndarray):
+    if isinstance(img, jnp.ndarray):
         return jax_convolve2d(img, kernel, mode)  # type: ignore
 
     return convolve2d(img, kernel, mode)
