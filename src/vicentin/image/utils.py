@@ -8,7 +8,7 @@ except ImportError:
     jnp = np
     jax_convolve2d = convolve2d
 
-from utils import sum, log10, sqrt
+from vicentin.utils import sum, log10, sqrt
 
 
 def _img2blocks_numpy(img, block_shape, step_row, step_col):

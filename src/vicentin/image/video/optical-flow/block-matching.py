@@ -5,7 +5,7 @@ try:
 except ImportError:
     jnp = np
 
-from image.utils import img2blocks
+from vicentin.image.utils import img2blocks
 
 
 def _block_matching_numpy(img1, img2, block_shape=(8, 8), search_radius=16):

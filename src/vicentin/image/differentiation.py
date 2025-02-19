@@ -5,7 +5,7 @@ try:
 except ImportError:
     jnp = np
 
-from image.utils import convolve
+from vicentin.image.utils import convolve
 
 
 def finite_diffs(img, backward=False):
