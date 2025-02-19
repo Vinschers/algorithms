@@ -1,2 +1,4 @@
 .jupyter/
 __pycache__/
+dist/
+vicentin.egg-info/

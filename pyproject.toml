@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vicentin"
+version = "0.1"
+description = "Personal collection of algorithms."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MIT License" }
+authors = [{ name = "Felipe Vicentin", email = "hello@a.vicentin.xyz" }]
+urls = { "Homepage" = "https://github.com/Vinschers/algorithms" }
+dependencies = [
+    "numpy",
+    "scipy"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests", "docs"]
