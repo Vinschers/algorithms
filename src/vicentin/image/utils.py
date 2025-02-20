@@ -1,14 +1,13 @@
 import numpy as np
 from scipy.signal import convolve2d
 
-try:
-    import jax.numpy as jnp
-    from jax.scipy.signal import convolve2d as jax_convolve2d
-except ImportError:
-    jnp = np
-    jax_convolve2d = convolve2d
+import jax
+from jax.scipy.signal import convolve2d as jax_convolve2d
 
-from vicentin.utils import sum, log10, sqrt
+from vicentin.utils import _wrap_func, asarray, sum, log10, sqrt, repeat, arange
+
+
+convolve = _wrap_func(convolve2d, jax_convolve2d)
 
 
 def _img2blocks_numpy(img, block_shape, step_row, step_col):
@@ -24,19 +23,23 @@ def _img2blocks_numpy(img, block_shape, step_row, step_col):
     Returns:
         np.ndarray: Extracted blocks.
     """
-    img = np.asarray(img)
+
+    img = asarray(img)  # Converts input to either np or jnp
     H, W = img.shape
-    block_height, block_width = block_shape
+    bH, bW = block_shape
 
-    # Compute number of blocks
-    n_rows = (H - block_height) // step_row + 1
-    n_cols = (W - block_width) // step_col + 1
+    n_rows = (H - bH) // step_row + 1
+    n_cols = (W - bW) // step_col + 1
 
-    # Use as_strided() for efficient block extraction
-    new_shape = (n_rows, n_cols, block_height, block_width)
-    new_strides = (img.strides[0] * step_row, img.strides[1] * step_col, img.strides[0], img.strides[1])
-
-    return np.lib.stride_tricks.as_strided(img, shape=new_shape, strides=new_strides, writeable=False)
+    new_shape = (n_rows, n_cols, bH, bW)
+    new_strides = (
+        img.strides[0] * step_row,
+        img.strides[1] * step_col,
+        img.strides[0],
+        img.strides[1],
+    )
+    blocks = np.lib.stride_tricks.as_strided(img, shape=new_shape, strides=new_strides, writeable=False)
+    return blocks.copy()
 
 
 def _img2blocks_jax(img, block_shape, step_row, step_col):
@@ -52,17 +55,22 @@ def _img2blocks_jax(img, block_shape, step_row, step_col):
     Returns:
         jnp.ndarray: Extracted blocks.
     """
-    img = jnp.asarray(img)
-    H, W = img.shape
-    block_height, block_width = block_shape
 
-    blocks = jnp.array(
-        [
-            [img[i : i + block_height, j : j + block_width] for j in range(0, W - block_width + 1, step_col)]
-            for i in range(0, H - block_height + 1, step_row)
-        ]
-    )
-    return blocks
+    img = asarray(img)
+    H, W = img.shape
+    bH, bW = block_shape
+
+    n_rows = (H - bH) // step_row + 1
+    n_cols = (W - bW) // step_col + 1
+
+    row_idx = arange(0, H - bH + 1, step_row).reshape(-1, 1)
+    col_idx = arange(0, W - bW + 1, step_col).reshape(1, -1)
+
+    row_idx = repeat(row_idx, n_cols, axis=1).flatten()
+    col_idx = repeat(col_idx, n_rows, axis=0).flatten()
+
+    blocks = jax.vmap(lambda r, c: jax.lax.dynamic_slice(img, (r, c), (bH, bW)))(row_idx, col_idx)
+    return blocks.reshape(n_rows, n_cols, bH, bW)
 
 
 def img2blocks(img, block_shape, step_row=-1, step_col=-1):
@@ -74,7 +82,6 @@ def img2blocks(img, block_shape, step_row=-1, step_col=-1):
         block_shape (tuple): Block size (height, width).
         step_row (int, optional): Step size in row direction. Defaults to block height.
         step_col (int, optional): Step size in column direction. Defaults to block width.
-        backend (str, optional): "cpu" (NumPy) or "jax" (JAX). If None, auto-detect.
 
     Returns:
         np.ndarray or jnp.ndarray: Extracted blocks.
@@ -85,38 +92,7 @@ def img2blocks(img, block_shape, step_row=-1, step_col=-1):
     if step_col == -1:
         step_col = block_shape[1]
 
-    if isinstance(img, jnp.ndarray):
-        return _img2blocks_jax(img, block_shape, step_row, step_col)
-
-    return _img2blocks_numpy(img, block_shape, step_row, step_col)
-
-
-def convolve(img, kernel, mode="same"):
-    """
-    Convolve an image with a kernel using 2D convolution.
-
-    This function supports both NumPy and JAX arrays. If both the image and kernel
-    are JAX arrays, it uses `jax_convolve2d`; otherwise, it falls back to SciPy's
-    `convolve2d`.
-
-    Parameters
-    ----------
-    img : numpy.ndarray or jax.numpy.ndarray
-        The input image.
-    kernel : numpy.ndarray or jax.numpy.ndarray
-        The convolution kernel.
-    mode : str, optional
-        The mode of convolution (e.g., "same", "valid"). Default is "same".
-
-    Returns
-    -------
-    numpy.ndarray or jax.numpy.ndarray
-        The convolved image.
-    """
-    if isinstance(img, jnp.ndarray):
-        return jax_convolve2d(img, kernel, mode)  # type: ignore
-
-    return convolve2d(img, kernel, mode)
+    return _wrap_func(_img2blocks_numpy, _img2blocks_jax)(img, block_shape, step_row, step_col)
 
 
 def PSNR(img1, img2):

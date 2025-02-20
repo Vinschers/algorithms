@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vicentin"
-version = "0.1.6"
+version = "0.1.7"
 description = "Personal collection of algorithms."
 readme = "README.md"
 requires-python = ">=3.7"
@@ -13,7 +13,8 @@ authors = [{ name = "Felipe Vicentin", email = "hello@a.vicentin.xyz" }]
 urls = { "Homepage" = "https://github.com/Vinschers/algorithms" }
 dependencies = [
     "numpy",
-    "scipy"
+    "scipy",
+    "jax"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
