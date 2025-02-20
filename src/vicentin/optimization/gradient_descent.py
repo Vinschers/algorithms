@@ -31,7 +31,7 @@ def proximal_gradient_descent(F, dF, prox, x0, step_size, line_search=False, max
     max_iter : int, optional (default=100)
         The maximum number of iterations.
     tol : float, optional (default=1e-6)
-        Convergence tolerance. The algorithm stops when `norm(x - next_x) < tol`.
+        Convergence tolerance. The algorithm stops when `norm(grad) < tol`.
 
     Returns:
     -------
@@ -131,7 +131,7 @@ def lasso_gradient_descent(F, dF, x0, step_size, lamb, line_search=False, max_it
     max_iter : int, optional (default=100)
         The maximum number of iterations.
     tol : float, optional (default=1e-6)
-        Convergence tolerance. The algorithm stops when `norm(x - next_x) < tol`.
+        Convergence tolerance. The algorithm stops when `norm(grad) < tol`.
 
     Returns:
     -------
