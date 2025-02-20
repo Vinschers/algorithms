@@ -1,5 +1,6 @@
 import toml
-import argparse
+import subprocess
+import os
 
 # Load pyproject.toml
 with open("pyproject.toml", "r") as f:
@@ -8,33 +9,46 @@ with open("pyproject.toml", "r") as f:
 # Get current version
 current_version = data["project"]["version"]
 
-# Parse current version
-major, minor, patch = map(int, current_version.split("."))
+# Parse version (major.minor.patch) as integers
+try:
+    major, minor, patch = map(int, current_version.split("."))
+except ValueError:
+    print(f"❌ Error: Invalid version format '{current_version}' in pyproject.toml")
+    exit(1)
 
-# Argument parsing for version bump type
-parser = argparse.ArgumentParser()
-parser.add_argument("type", choices=["major", "minor", "patch"], help="Version bump type")
-args = parser.parse_args()
+# Get commit message from Git's commit edit file
+commit_msg_file = ".git/COMMIT_EDITMSG"
 
-# Increment version
-if args.type == "major":
+if not os.path.exists(commit_msg_file):
+    print("❌ Error: No commit message found. Exiting.")
+    exit(1)
+
+with open(commit_msg_file, "r") as f:
+    commit_message = f.read().strip()
+
+# Determine bump type based on commit message
+if "#major" in commit_message.lower():
     major += 1
-    minor, patch = 0, 0
-elif args.type == "minor":
+    minor = 0
+    patch = 0
+    bump_type = "major"
+elif "#minor" in commit_message.lower():
     minor += 1
     patch = 0
-elif args.type == "patch":
+    bump_type = "minor"
+else:
     patch += 1
+    bump_type = "patch"
 
+# Set new version as string
 new_version = f"{major}.{minor}.{patch}"
-print(f"Bumping version: {current_version} → {new_version}")
-
-# Update version in pyproject.toml
 data["project"]["version"] = new_version
 
 # Save updated pyproject.toml
 with open("pyproject.toml", "w") as f:
     toml.dump(data, f)
 
-# Print new version for debugging
-print(f"Updated version: {data['project']['version']}")
+# Stage and commit the updated version
+subprocess.run(["git", "add", "pyproject.toml"])
+
+print(f"✅ Version bumped: {current_version} → {new_version} ({bump_type})")
