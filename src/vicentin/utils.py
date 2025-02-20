@@ -35,3 +35,4 @@ abs = _wrap_func(np.abs, jnp.abs)
 SVD = _wrap_func(np.linalg.svd, jnp.linalg.svd)
 
 inf = np.inf
+isnan = _wrap_func(np.isnan, jnp.isnan)

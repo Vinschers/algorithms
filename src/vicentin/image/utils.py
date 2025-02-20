@@ -1,13 +1,16 @@
 import numpy as np
 from scipy.signal import convolve2d
+from scipy.ndimage import gaussian_filter as scipy_gaussian_filter
 
 import jax
 from jax.scipy.signal import convolve2d as jax_convolve2d
+#from jax.scipy.ndimage import gaussian_filter as jax_gaussian_filter
 
 from vicentin.utils import _wrap_func, asarray, sum, log10, sqrt, repeat, arange
 
 
 convolve = _wrap_func(convolve2d, jax_convolve2d)
+gaussian_filter = _wrap_func(scipy_gaussian_filter, scipy_gaussian_filter)
 
 
 def _img2blocks_numpy(img, block_shape, step_row, step_col):
