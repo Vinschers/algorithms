@@ -23,3 +23,10 @@ Homepage = "https://github.com/Vinschers/algorithms"
 [tool.setuptools.packages.find]
 where = [ "src",]
 exclude = [ "tests", "docs",]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "0.5.2"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true
