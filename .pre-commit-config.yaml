@@ -17,7 +17,7 @@ repos:
         types: [python]
       - id: bump-version
         name: Bump Version
-        entry: bash -c "cz bump --files-only --allow-no-commit --yes && git add VERSION pyproject.toml"
+        entry: bash -c "./bump_version.sh patch"
         language: system
         pass_filenames: false
         stages:

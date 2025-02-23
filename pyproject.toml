@@ -27,7 +27,6 @@ exclude = [ "tests", "docs",]
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.6.0"
-tag_format = "v$version"
 version_files = [
     "VERSION",
     "pyproject.toml:version"
@@ -36,3 +35,4 @@ bump_message = "bump: version $current_version → $new_version"
 version_scheme = "pep440"
 version_provider = "pep621"
 update_changelog_on_bump = false
+tag_format = ""

@@ -2,7 +2,7 @@
 
 *A Python package showcasing algorithms, data structures, and mathematical concepts.*
 
-[![CI](https://github.com/Vinschers/vicentin/actions/workflows/python-ci.yml/badge.svg)](https://github.com/Vinschers/vicentin/actions)
+[![CI](https://github.com/Vinschers/algorithms/actions/workflows/publish.yml/badge.svg)](https://github.com/Vinschers/algorithms/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
