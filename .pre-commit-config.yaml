@@ -21,10 +21,11 @@ repos:
         types: [python]
       - id: bump-version
         name: Bump Version
-        entry: cz bump
+        entry: bash -c "cz bump --files-only --allow-no-commit && git add VERSION pyproject.toml"
         language: system
         pass_filenames: false
-        stages: [post-commit]
+        stages:
+          - pre-commit
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v2.42.0
