@@ -1,6 +1,17 @@
 import toml
+import sys
 import subprocess
-import os
+
+# Ensure we receive the commit message file
+if len(sys.argv) < 2:
+    print("❌ Error: No commit message file provided. Exiting.")
+    exit(1)
+
+commit_msg_file = sys.argv[1]
+
+# Read the commit message
+with open(commit_msg_file, "r") as f:
+    commit_message = f.read().strip()
 
 # Load pyproject.toml
 with open("pyproject.toml", "r") as f:
@@ -16,16 +27,6 @@ except ValueError:
     print(f"❌ Error: Invalid version format '{current_version}' in pyproject.toml")
     exit(1)
 
-# Get commit message from Git's commit edit file
-commit_msg_file = ".git/COMMIT_EDITMSG"
-
-if not os.path.exists(commit_msg_file):
-    print("❌ Error: No commit message found. Exiting.")
-    exit(1)
-
-with open(commit_msg_file, "r") as f:
-    commit_message = f.read().strip()
-
 # Determine bump type based on commit message
 if "#major" in commit_message.lower():
     major += 1
@@ -36,9 +37,12 @@ elif "#minor" in commit_message.lower():
     minor += 1
     patch = 0
     bump_type = "minor"
-else:
+elif "#patch" in commit_message.lower():
     patch += 1
     bump_type = "patch"
+else:
+    print("ℹ️ No version bump keyword found. Skipping.")
+    exit(0)  # Exit without error if no bump is needed
 
 # Set new version as string
 new_version = f"{major}.{minor}.{patch}"
@@ -48,7 +52,9 @@ data["project"]["version"] = new_version
 with open("pyproject.toml", "w") as f:
     toml.dump(data, f)
 
-# Stage and commit the updated version
+# Stage the updated file
 subprocess.run(["git", "add", "pyproject.toml"])
+
+print(f"✅ Version bumped: {current_version} → {new_version} ({bump_type})")
 
 print(f"✅ Version bumped: {current_version} → {new_version} ({bump_type})")
