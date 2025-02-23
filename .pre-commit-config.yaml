@@ -9,11 +9,6 @@ repos:
 
   - repo: local
     hooks:
-      - id: pylint
-        name: pylint
-        entry: pylint
-        language: system
-        types: [python]
       - id: black
         name: black
         entry: black
@@ -21,7 +16,7 @@ repos:
         types: [python]
       - id: bump-version
         name: Bump Version
-        entry: bash -c "cz bump --files-only --allow-no-commit && git add VERSION pyproject.toml"
+        entry: bash -c "cz bump --files-only --allow-no-commit --yes && git add VERSION pyproject.toml"
         language: system
         pass_filenames: false
         stages:

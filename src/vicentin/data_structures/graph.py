@@ -1,3 +1,6 @@
+from collections import defaultdict
+
+
 class Vertex:
     """
     A simple wrapper to represent a graph vertex.
@@ -149,6 +152,8 @@ class Graph:
         self.n = 0  # number of vertices
         self.m = 0  # number of edges
 
+        self.adj_matrix = defaultdict(lambda: defaultdict(int))  # dict of dicts
+
         for _ in range(n):
             self.add_vertex()
 
@@ -211,13 +216,17 @@ class Graph:
         self.edges[e_id] = edge_obj
 
         self.vertices[u].neighbors[v] = e_id
+        self.adj_matrix[u][v] = weight
 
         if self.directed:
             self.vertices[v].in_neighbors[u] = e_id
+
             self.vertices[u].out_degree += 1
             self.vertices[v].in_degree += 1
         else:
             self.vertices[v].neighbors[u] = e_id
+            self.adj_matrix[v][u] = weight
+
             self.vertices[u].degree += 1
             self.vertices[v].degree += 1
 
@@ -248,9 +257,13 @@ class Graph:
 
         if v in self.vertices[u].neighbors and self.vertices[u].neighbors[v] == e:
             del self.vertices[u].neighbors[v]
+        del self.adj_matrix[u][v]
 
         if self.directed:
-            if u in self.vertices[v].in_neighbors and self.vertices[v].in_neighbors[u] == e:
+            if (
+                u in self.vertices[v].in_neighbors
+                and self.vertices[v].in_neighbors[u] == e
+            ):
                 del self.vertices[v].in_neighbors[u]
 
             self.vertices[u].out_degree -= 1
@@ -258,6 +271,7 @@ class Graph:
         else:
             if u in self.vertices[v].neighbors and self.vertices[v].neighbors[u] == e:
                 del self.vertices[v].neighbors[u]
+            del self.adj_matrix[v][u]
 
             self.vertices[u].degree -= 1
             self.vertices[v].degree -= 1
@@ -297,6 +311,7 @@ class Graph:
             self.remove_edge(e_id)
 
         del self.vertices[v]
+        del self.adj_matrix[v]
         self.n -= 1
 
     def __repr__(self):
