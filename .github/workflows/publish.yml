@@ -10,29 +10,48 @@ on:
 
 jobs:
   pypi-publish:
-    name: upload release to PyPI
+    name: Upload release to PyPI
     runs-on: ubuntu-latest
-    # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
     permissions:
       # IMPORTANT: this permission is mandatory for Trusted Publishing
       id-token: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Ensures we get the previous commit for comparison
+
+      - name: Check if VERSION file has changed
+        id: version_check
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -q "^VERSION$"; then
+            echo "VERSION_CHANGED=true" >> $GITHUB_ENV
+          else
+            echo "VERSION_CHANGED=false" >> $GITHUB_ENV
+          fi
 
       - name: Set up Python
+        if: env.VERSION_CHANGED == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
       - name: Install dependencies
+        if: env.VERSION_CHANGED == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install build twine
 
       - name: Build package
+        if: env.VERSION_CHANGED == 'true'
         run: python -m build
 
       - name: Publish package distributions to PyPI
+        if: env.VERSION_CHANGED == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Skip publishing
+        if: env.VERSION_CHANGED == 'false'
+        run: echo "No changes in VERSION file. Skipping publishing."
