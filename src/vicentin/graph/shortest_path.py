@@ -60,8 +60,59 @@ def dijkstra(graph: Graph, source: int):
     return dist, prev
 
 
-def bellman_ford():
-    pass
+def bellman_ford(graph: Graph, source: int):
+    """
+    Computes the shortest paths from a given source vertex to all other vertices in a weighted graph
+    using the Bellman-Ford algorithm.
+
+    Unlike Dijkstra’s algorithm, Bellman-Ford can handle graphs with negative edge weights.
+    It iterates over all edges multiple times to relax distances and detect negative weight cycles.
+
+    Time Complexity:
+        - O(VE), where V is the number of vertices and E is the number of edges.
+
+    Space Complexity:
+        - O(V), for storing distances and predecessors.
+
+    Args:
+        graph (Graph): The graph on which to run the Bellman-Ford algorithm.
+        source (int): The ID of the source vertex.
+
+    Returns:
+        tuple[dict[int, float], dict[int, int | None]]:
+            - A dictionary `dist` mapping each vertex ID to its shortest distance from the source.
+            - A dictionary `prev` mapping each vertex ID to its predecessor in the shortest path.
+              If a vertex is unreachable from the source, it will have `None` as its predecessor.
+
+    Raises:
+        ValueError: If the source vertex is not found in the graph.
+        ValueError: If a negative weight cycle is detected in the graph.
+    """
+
+    if source not in graph.vertices:
+        raise ValueError(f"Vertex {source} not found in the graph.")
+
+    dist = defaultdict(lambda: inf)
+    prev = defaultdict(lambda: None)
+
+    dist[source] = 0
+
+    for _ in range(graph.n - 1):
+        for _, edge in graph.edges:
+            u, v, w = edge.source, edge.target, edge.weight
+
+            alt = dist[u] + w
+            if alt < dist[v]:
+                dist[v] = alt
+                prev[v] = u
+
+    for _, edge in graph.edges:
+        u, v, w = edge.source, edge.target, edge.weight
+
+        # check for negative cycle
+        if dist[u] + w < dist[v]:
+            raise ValueError("Graph contains negative cycle")
+    return dist, prev
 
 
 def floyd_warshall():

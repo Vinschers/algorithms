@@ -23,13 +23,13 @@
 ---
 
 ## **Features**
-✅ **Data Structures** – Graphs, Heaps, Priority Queues
-✅ **Dynamic Programming** – Knapsack, Matrix Chain Multiplication, Rod Cutting
-✅ **Graph Algorithms** – Minimum Spanning Tree (MST), Shortest Path
-✅ **Image Processing** – Optical Flow, Differentiation, Regularization
-✅ **Optimization** – Gradient Descent
-✅ **Sorting** – Heap Sort
-✅ **Mathematical Tools** – PCA, Kernel PCA, Polynomial Operations
+- **Data Structures** – Graphs, Heaps, Priority Queues
+- **Dynamic Programming** – Knapsack, Matrix Chain Multiplication, Rod Cutting
+- **Graph Algorithms** – Minimum Spanning Tree (MST), Shortest Path
+- **Image Processing** – Optical Flow, Differentiation, Regularization
+- **Optimization** – Gradient Descent
+- **Sorting** – Heap Sort
+- **Mathematical Tools** – PCA, Kernel PCA, Polynomial Operations
 
 ---
 
