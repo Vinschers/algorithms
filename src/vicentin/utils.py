@@ -31,6 +31,7 @@ tile = _wrap_func(np.tile, jnp.tile)
 
 mean = _wrap_func(np.mean, jnp.mean)
 sum = _wrap_func(np.sum, jnp.sum)
+prod = _wrap_func(np.prod, jnp.sum)
 log10 = _wrap_func(np.log10, jnp.log10)
 sqrt = _wrap_func(np.sqrt, jnp.sqrt)
 abs = _wrap_func(np.abs, jnp.abs)

@@ -4,7 +4,8 @@ from scipy.ndimage import gaussian_filter as scipy_gaussian_filter
 
 import jax
 from jax.scipy.signal import convolve2d as jax_convolve2d
-#from jax.scipy.ndimage import gaussian_filter as jax_gaussian_filter
+
+# from jax.scipy.ndimage import gaussian_filter as jax_gaussian_filter
 
 from vicentin.utils import _wrap_func, asarray, sum, log10, sqrt, repeat, arange
 
@@ -130,3 +131,51 @@ def PSNR(img1, img2):
     mse = sum((img1 - img2) ** 2) / (H * W)
     max_I = img1.max()
     return 20 * log10(max_I / sqrt(mse))
+
+
+def get_neighbors(H, W, L, row, col, k, neighborhood=4):
+    """
+    Retrieves the neighboring pixels of a given pixel in a 1D, 2D, or 3D image.
+
+    This function determines valid neighboring coordinates based on the specified
+    neighborhood type (4-neighborhood or 8-neighborhood). The neighbors are constrained
+    within the image dimensions to avoid out-of-bounds errors.
+
+    Args:
+        H (int): The height (number of rows) of the image.
+        W (int): The width (number of columns) of the image.
+        L (int): The depth (number of channels) of the image.
+        row (int): The row index of the current pixel.
+        col (int): The column index of the current pixel.
+        k (int): The depth index of the current pixel.
+        neighborhood (int, optional): The type of neighborhood to consider:
+            - `4`: Only direct neighbors (left, right, up, down, front, back).
+            - `8`: Includes diagonal neighbors as well.
+            Defaults to `4`.
+
+    Returns:
+        list[tuple[int, int, int]]: A list of tuples representing valid neighboring coordinates.
+
+    Time Complexity:
+        - O(1), as it evaluates a constant number of neighbor positions.
+
+    Space Complexity:
+        - O(1), as it only stores a small list of neighbors.
+
+    Raises:
+        ValueError: If `neighborhood` is not 4 or 8.
+    """
+    neighbors = []
+    possible_moves = []
+
+    if neighborhood == 4:
+        possible_moves = [(-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)]
+    elif neighborhood == 8:
+        possible_moves = [(i, j, m) for i in [-1, 0, 1] for j in [-1, 0, 1] for m in [-1, 0, 1] if not (i == j == m == 0)]
+
+    for di, dj, dm in possible_moves:
+        ni, nj, nm = row + di, col + dj, k + dm
+        if 0 <= ni < H and 0 <= nj < W and 0 <= nm < L:
+            neighbors.append((ni, nj, nm))
+
+    return neighbors
