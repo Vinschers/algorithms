@@ -15,6 +15,7 @@ repos:
         entry: black
         language: system
         types: [python]
+        args: ["--fast", "--line-length", "150", "--check"]
       - id: bump-version
         name: Bump Version
         entry: bash -c "./bump_version.sh patch"

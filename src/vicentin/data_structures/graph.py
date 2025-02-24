@@ -1,5 +1,8 @@
 from collections import defaultdict
 
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 class Vertex:
     """
@@ -17,7 +20,7 @@ class Vertex:
     Space Complexity per vertex: O(1)
     """
 
-    def __init__(self, v_id, data=None, directed=False):
+    def __init__(self, v_id: int, data=None, directed: bool = False):
         """
         Initialize a Vertex instance.
 
@@ -25,8 +28,8 @@ class Vertex:
         Space Complexity: O(1)
 
         Args:
-            v_id: The unique identifier for the vertex.
-            data: Optional data associated with the vertex.
+            v_id (int): The unique identifier for the vertex.
+            data (Any, optional): Optional data associated with the vertex.
             directed (bool): If True, initializes directed graph attributes (in_neighbors, in_degree, out_degree);
                              otherwise, initializes undirected graph attribute (degree).
         """
@@ -73,7 +76,7 @@ class Edge:
     Space Complexity per edge: O(1)
     """
 
-    def __init__(self, e_id, source, target, data=None, weight=1):
+    def __init__(self, e_id: int, source: int, target: int, data=None, weight: float = 1):
         """
         Initialize an Edge instance.
 
@@ -81,11 +84,11 @@ class Edge:
         Space Complexity: O(1)
 
         Args:
-            e_id: The unique identifier for the edge.
-            source: The source vertex ID.
-            target: The target vertex ID.
-            data: Optional data associated with the edge.
-            weight (int, optional): The weight of the edge (default is 1).
+            e_id (int): The unique identifier for the edge.
+            source (int): The source vertex ID.
+            target (int): The target vertex ID.
+            data (Any, optional): Optional data associated with the edge.
+            weight (float, optional): The weight of the edge (default is 1).
         """
 
         self.id = e_id
@@ -126,7 +129,7 @@ class Graph:
     Time Complexity: Varies by operation.
     """
 
-    def __init__(self, n=0, directed=False):
+    def __init__(self, n: int = 0, directed: bool = False):
         """
         Initialize a Graph instance.
 
@@ -137,8 +140,8 @@ class Graph:
         Space Complexity: O(n)
 
         Args:
-            n (int, optional): The initial number of vertices to add.
-            directed (bool): If True, creates a directed graph; otherwise, an undirected graph.
+            n (int, optional): The initial number of vertices to add (default is 0).
+            directed (bool, optional): If True, creates a directed graph; otherwise, an undirected graph (default is False).
         """
 
         self.directed = directed
@@ -152,7 +155,7 @@ class Graph:
         self.n = 0  # number of vertices
         self.m = 0  # number of edges
 
-        self.adj_matrix = defaultdict(lambda: defaultdict(int))  # dict of dicts
+        self.adj_matrix = defaultdict(lambda: defaultdict(float))  # dict of dicts
 
         for _ in range(n):
             self.add_vertex()
@@ -168,10 +171,10 @@ class Graph:
         Space Complexity: O(1)
 
         Args:
-            data: Optional data to store with the vertex.
+            data (Any, optional): Optional data to store with the vertex.
 
         Returns:
-            The unique ID of the newly added vertex.
+            int: The unique ID of the newly added vertex.
         """
 
         v_id = self._next_vertex_id
@@ -183,7 +186,7 @@ class Graph:
         self.n += 1
         return v_id
 
-    def add_edge(self, u, v, weight=1, data=None):
+    def add_edge(self, u_id: int, v_id: int, weight: float = 1, data=None):
         """
         Add an edge to the graph between vertices u and v with an optional weight and data.
 
@@ -194,46 +197,46 @@ class Graph:
         Space Complexity: O(1)
 
         Args:
-            u: The source vertex ID.
-            v: The target vertex ID.
-            weight (int, optional): The weight of the edge (default is 1).
-            data: Optional data associated with the edge.
+            u_id (int): The source vertex ID.
+            v_id (int): The target vertex ID.
+            weight (float, optional): The weight of the edge (default is 1).
+            data (Any, optional): Optional data associated with the edge.
 
         Returns:
-            The unique ID of the newly added edge.
+            int: The unique ID of the newly added edge.
 
         Raises:
             ValueError: If either the source or target vertex does not exist.
         """
 
-        if u not in self.vertices or v not in self.vertices:
+        if u_id not in self.vertices or v_id not in self.vertices:
             raise ValueError("Source or target vertex does not exist.")
 
         e_id = self._next_edge_id
         self._next_edge_id += 1
 
-        edge_obj = Edge(e_id, u, v, data, weight)
+        edge_obj = Edge(e_id, u_id, v_id, data, weight)
         self.edges[e_id] = edge_obj
 
-        self.vertices[u].neighbors[v] = e_id
-        self.adj_matrix[u][v] = weight
+        self.vertices[u_id].neighbors[v_id] = e_id
+        self.adj_matrix[u_id][v_id] = weight
 
         if self.directed:
-            self.vertices[v].in_neighbors[u] = e_id
+            self.vertices[v_id].in_neighbors[u_id] = e_id
 
-            self.vertices[u].out_degree += 1
-            self.vertices[v].in_degree += 1
+            self.vertices[u_id].out_degree += 1
+            self.vertices[v_id].in_degree += 1
         else:
-            self.vertices[v].neighbors[u] = e_id
-            self.adj_matrix[v][u] = weight
+            self.vertices[v_id].neighbors[u_id] = e_id
+            self.adj_matrix[v_id][u_id] = weight
 
-            self.vertices[u].degree += 1
-            self.vertices[v].degree += 1
+            self.vertices[u_id].degree += 1
+            self.vertices[v_id].degree += 1
 
         self.m += 1
         return e_id
 
-    def remove_edge(self, e):
+    def remove_edge(self, e_id: int):
         """
         Remove an edge from the graph given its edge ID.
 
@@ -243,62 +246,59 @@ class Graph:
         Space Complexity: O(1)
 
         Args:
-            e: The edge ID of the edge to be removed.
+            e_id (int): The unique ID of the edge to be removed.
 
         Raises:
             ValueError: If the edge does not exist.
         """
 
-        if e not in self.edges:
+        if e_id not in self.edges:
             raise ValueError("Edge does not exist.")
 
-        edge_obj = self.edges[e]
+        edge_obj = self.edges[e_id]
         u, v = edge_obj.source, edge_obj.target
 
-        if v in self.vertices[u].neighbors and self.vertices[u].neighbors[v] == e:
+        if v in self.vertices[u].neighbors and self.vertices[u].neighbors[v] == e_id:
             del self.vertices[u].neighbors[v]
         del self.adj_matrix[u][v]
 
         if self.directed:
-            if (
-                u in self.vertices[v].in_neighbors
-                and self.vertices[v].in_neighbors[u] == e
-            ):
+            if u in self.vertices[v].in_neighbors and self.vertices[v].in_neighbors[u] == e_id:
                 del self.vertices[v].in_neighbors[u]
 
             self.vertices[u].out_degree -= 1
             self.vertices[v].in_degree -= 1
         else:
-            if u in self.vertices[v].neighbors and self.vertices[v].neighbors[u] == e:
+            if u in self.vertices[v].neighbors and self.vertices[v].neighbors[u] == e_id:
                 del self.vertices[v].neighbors[u]
             del self.adj_matrix[v][u]
 
             self.vertices[u].degree -= 1
             self.vertices[v].degree -= 1
 
-        del self.edges[e]
+        del self.edges[e_id]
         self.m -= 1
 
-    def remove_vertex(self, v):
+    def remove_vertex(self, v_id: int):
         """
         Remove a vertex from the graph given its vertex ID.
 
         Removes all incident edges (both outgoing and, for directed graphs, incoming) and then deletes the vertex.
 
         Time Complexity: O(degree(v)), where degree(v) is the number of incident edges.
-        Space Complexity: O(1) auxiliary space
+        Space Complexity: O(1) auxiliary space.
 
         Args:
-            v: The vertex ID of the vertex to be removed.
+            v_id (int): The unique ID of the vertex to be removed.
 
         Raises:
             ValueError: If the vertex does not exist.
         """
 
-        if v not in self.vertices:
+        if v_id not in self.vertices:
             raise ValueError("Vertex does not exist.")
 
-        v_obj = self.vertices[v]
+        v_obj = self.vertices[v_id]
         incident_edges = set()
 
         # Outgoing edges (present in neighbors)
@@ -310,9 +310,31 @@ class Graph:
         for e_id in incident_edges:
             self.remove_edge(e_id)
 
-        del self.vertices[v]
-        del self.adj_matrix[v]
+        del self.vertices[v_id]
+        del self.adj_matrix[v_id]
         self.n -= 1
+
+    def draw(self):
+        """
+        Visualizes the graph using `networkx` and `matplotlib`.
+
+        Nodes represent vertices, and edges are drawn based on adjacency.
+        If the graph is weighted, edge weights are displayed.
+
+        Time Complexity: O(V + E)
+        Space Complexity: O(V + E)
+        """
+        G = nx.DiGraph() if self.directed else nx.Graph()
+        for v in self.vertices:
+            G.add_node(v)
+        for edge in self.edges.values():
+            G.add_edge(edge.source, edge.target, weight=edge.weight)
+
+        pos = nx.spring_layout(G)
+        labels = nx.get_edge_attributes(G, "weight")
+        nx.draw(G, pos, with_labels=True)
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+        plt.show()
 
     def __repr__(self):
         """
@@ -322,14 +344,14 @@ class Graph:
         Space Complexity: O(1)
 
         Returns:
-            str: A string summarizing the graph type (directed/undirected) and the counts of vertices and edges.
+            str: A formatted string summarizing the graph type (directed/undirected) and the counts of vertices and edges.
         """
 
         graph_type = "Directed" if self.directed else "Undirected"
         return f"<{graph_type} Graph: |V|={self.n}, |E|={self.m}>"
 
     @staticmethod
-    def line(n, directed=False):
+    def line(n: int, directed: bool = False):
         """
         Create and return a line graph with n vertices.
 
@@ -341,10 +363,10 @@ class Graph:
 
         Args:
             n (int): The number of vertices in the graph.
-            directed (bool, optional): If True, creates a directed line graph; otherwise, an undirected line graph.
+            directed (bool, optional): If True, creates a directed line graph; otherwise, an undirected line graph (default is False).
 
         Returns:
-            A Graph instance representing the line graph.
+            Graph: A Graph instance representing the line graph.
         """
 
         graph = Graph(n, directed)
@@ -356,7 +378,7 @@ class Graph:
         return graph
 
     @staticmethod
-    def cycle(n, directed=False):
+    def cycle(n: int, directed: bool = False):
         """
         Create and return a cycle graph with n vertices.
 
@@ -368,10 +390,10 @@ class Graph:
 
         Args:
             n (int): The number of vertices in the graph.
-            directed (bool, optional): If True, creates a directed cycle graph; otherwise, an undirected cycle graph.
+            directed (bool, optional): If True, creates a directed cycle graph; otherwise, an undirected cycle graph (default is False).
 
         Returns:
-            A Graph instance representing the cycle graph.
+            Graph: A Graph instance representing the cycle graph.
         """
 
         graph = Graph(n, directed)
@@ -383,7 +405,7 @@ class Graph:
         return graph
 
     @staticmethod
-    def complete(n, directed=False):
+    def complete(n: int, directed: bool = False):
         """
         Create and return a complete graph with n vertices.
 
@@ -394,10 +416,10 @@ class Graph:
 
         Args:
             n (int): The number of vertices in the graph.
-            directed (bool, optional): If True, creates a directed complete graph; otherwise, an undirected complete graph.
+            directed (bool, optional): If True, creates a directed complete graph; otherwise, an undirected complete graph (default is False).
 
         Returns:
-            A Graph instance representing the complete graph.
+            Graph: A Graph instance representing the complete graph.
         """
 
         graph = Graph(n, directed)

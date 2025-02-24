@@ -3,7 +3,7 @@ from .heap import Heap
 
 
 class _PriorityQueueNode:
-    def __init__(self, priority, value):
+    def __init__(self, priority: int, value):
         """
         Initialize a priority queue node with the given priority and value.
 
@@ -128,6 +128,9 @@ class PriorityQueue:
 
         return len(self.heap)
 
+    def __contains__(self, item):
+        return item in self.node_map
+
     def is_empty(self):
         """
         Determine whether the priority queue is empty.
@@ -212,38 +215,37 @@ class PriorityQueue:
 
         return node.priority, node.value
 
+    def update(self, value, new_priority, all=False):
+        """
+        Update the priority of one or all occurrences of a given value in the priority queue.
 
-def update(self, value, new_priority, all=False):
-    """
-    Update the priority of one or all occurrences of a given value in the priority queue.
+        If 'all' is False (default), only one occurrence is updated.
+        If 'all' is True, all occurrences of the specified value are updated.
+        For each update, if the current priority differs from new_priority, the node is replaced in the heap.
 
-    If 'all' is False (default), only one occurrence is updated.
-    If 'all' is True, all occurrences of the specified value are updated.
-    For each update, if the current priority differs from new_priority, the node is replaced in the heap.
+        Time Complexity:
+            - O(log n) on average if updating one occurrence.
+            - O(k log n) on average if updating k occurrences.
 
-    Time Complexity:
-        - O(log n) on average if updating one occurrence.
-        - O(k log n) on average if updating k occurrences.
+        Space Complexity: O(1) auxiliary space.
 
-    Space Complexity: O(1) auxiliary space.
+        Args:
+            value: The value whose priority is to be updated.
+            new_priority: The new priority to assign to the value.
+            all (bool): If True, update all occurrences of the value; otherwise, update only one occurrence.
 
-    Args:
-        value: The value whose priority is to be updated.
-        new_priority: The new priority to assign to the value.
-        all (bool): If True, update all occurrences of the value; otherwise, update only one occurrence.
+        Raises:
+            KeyError: If the specified value is not found in the priority queue.
+        """
+        if value not in self.node_map or not self.node_map[value]:
+            raise KeyError(f"Value {value} not found in priority queue")
 
-    Raises:
-        KeyError: If the specified value is not found in the priority queue.
-    """
-    if value not in self.node_map or not self.node_map[value]:
-        raise KeyError(f"Value {value} not found in priority queue")
+        nodes_to_update = list(self.node_map[value]) if all else [next(iter(self.node_map[value]))]
 
-    nodes_to_update = list(self.node_map[value]) if all else [next(iter(self.node_map[value]))]
+        for old_node in nodes_to_update:
+            if old_node.priority != new_priority:
+                new_node = _PriorityQueueNode(new_priority, value)
+                self.heap.replace(old_node, new_node)  # O(log n)
 
-    for old_node in nodes_to_update:
-        if old_node.priority != new_priority:
-            new_node = _PriorityQueueNode(new_priority, value)
-            self.heap.replace(old_node, new_node)  # O(log n)
-
-            self.node_map[value].remove(old_node)
-            self.node_map[value].add(new_node)
+                self.node_map[value].remove(old_node)
+                self.node_map[value].add(new_node)
