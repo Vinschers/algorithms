@@ -1,42 +1,62 @@
-from vicentin.utils import mean, SVD
+from vicentin.utils import min, mean, SVD
 
 
-def PCA(X):
+def PCA(X, k=-1):
     """
-    Performs Principal Component Analysis (PCA) on a given dataset.
+    Performs Principal Component Analysis (PCA) on the dataset X using Singular Value Decomposition (SVD).
 
-    PCA is a dimensionality reduction technique that transforms data into a set of orthogonal
-    components that maximize variance. This implementation computes the principal components
-    using Singular Value Decomposition (SVD) on the covariance matrix.
+    PCA is a popular dimensionality reduction technique that transforms the original data into a new coordinate system,
+    where the first axis captures the greatest variance, the second axis the second greatest, and so on. This function
+    centers the data, computes its SVD, and selects the top k principal components based on the eigenvalues of the
+    covariance matrix.
+
+    The function returns:
+        - Y: The projection of the centered data onto the top k principal components, yielding a reduced representation.
+        - components: A matrix where each row corresponds to a principal component (eigenvector) sorted by descending eigenvalue.
+        - eigenvalues: The eigenvalues associated with the selected principal components, representing the variance captured.
+        - var_explained: The fraction of total variance explained by each of the top k principal components.
 
     Time Complexity:
-        - O(N * M^2), where N is the number of samples and M is the number of features,
-          assuming SVD is computed efficiently.
+        - O(N * d^2), where N is the number of samples and d is the number of features (assuming efficient SVD computation).
 
     Space Complexity:
-        - O(M^2), for storing the covariance matrix and singular vectors.
+        - O(d^2), primarily for storing the covariance matrix approximation and singular vectors.
 
     Args:
-        X (numpy.ndarray): A 2D array of shape (N, M), where N is the number of samples
-                           and M is the number of features.
+        X (ndarray): A 2D array of shape (N, d), where N is the number of samples and d is the number of features.
+        k (int, optional): The number of principal components to retain. If k is negative, the function uses
+                           min(N, d) components. Otherwise, k is bounded by min(N, d). Defaults to -1.
 
     Returns:
-        tuple[numpy.ndarray, numpy.ndarray]:
-            - `D`: A 1D array containing the eigenvalues of the covariance matrix,
-                   representing the variance explained by each principal component.
-            - `Ut`: A 2D array where each row is a principal component (eigenvector),
-                    sorted in descending order of eigenvalues.
+        tuple:
+            - Y (ndarray): A 2D array of shape (N, k) containing the projection of X onto the top k principal components.
+            - components (ndarray): A 2D array of shape (k, d) where each row is a principal component (eigenvector).
+            - eigenvalues (ndarray): A 1D array of length k containing the eigenvalues of the covariance matrix corresponding
+                                           to the selected components.
+            - var_explained (ndarray): A 1D array of length k representing the proportion of total variance explained by each
+                                             principal component.
 
     Raises:
-        AssertionError: If the input array `X` is not a 2D array.
+        AssertionError: If X is not a 2D array.
     """
     assert len(X.shape) == 2, "X must be a 2D array."
 
     N = X.shape[0]
 
+    if k < 0:
+        k = min(N, X.shape[1])
+    else:
+        k = min(k, min(N, X.shape[1]))
+
     Xc = X - mean(X, axis=0)
-    _, S, Vt = SVD(Xc, full_matrices=False)
+    _, S, Vt = SVD(Xc, full_matrices=False)  # Covariance is C = (V S^2 V^T) / (N - 1)
+    U = Vt.T
 
     D = (S**2) / (N - 1)
 
-    return D, Vt
+    L = U[:, :k]  # Each column is an eigenvector
+    Y = Xc @ L
+
+    var_explained = D[:k] / sum(D)
+
+    return Y, L.T, D[:k], var_explained
