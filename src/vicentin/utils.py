@@ -45,6 +45,8 @@ exp = _wrap_func(np.exp, jnp.exp)
 inv = _wrap_func(np.linalg.inv, jnp.linalg.inv)
 
 SVD = _wrap_func(np.linalg.svd, jnp.linalg.svd)
+eigh = _wrap_func(np.linalg.eigh, jnp.linalg.eigh)
+argsort = _wrap_func(np.argsort, jnp.argsort)
 
 inf = np.inf
 isnan = _wrap_func(np.isnan, jnp.isnan)

@@ -1,4 +1,4 @@
-from vicentin.utils import exp, sqrt, SVD, sum
+from vicentin.utils import exp, sqrt, eigh, argsort, sum
 
 
 def rbf(sigma):
@@ -74,8 +74,15 @@ def KPCA(X, kernel, k=-1):
     K_mean_total = sum(K) / (N**2)  # Overall mean of all elements
     Kc = K - K_mean_row - K_mean_col + K_mean_total
 
-    U, D, Ut = SVD(Kc, full_matrices=False)
-    U = U / sqrt(D[None, :])  # Scailing eigenvectors
+    D, U = eigh(Kc)
+
+    idx = argsort(D)[::-1]
+    D = D[idx]
+    U = U[:, idx]
+
+    D[D < 1e-12] = 0
+
+    U = U / sqrt((N - 1) * D[None, :])  # Scailing eigenvectors
 
     L = U[:, :k]  # Each column is an eigenvector
     Y = Kc @ L  # Projection of data
