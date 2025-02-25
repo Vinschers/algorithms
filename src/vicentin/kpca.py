@@ -80,7 +80,7 @@ def KPCA(X, kernel, k=-1):
     D = D[idx]
     U = U[:, idx]
 
-    D[D < 1e-12] = 0
+    D[D <= 0] = 1e-18  # Make non-positive eigenvalues positive and close to 0
 
     U = U / sqrt((N - 1) * D[None, :])  # Scailing eigenvectors
 
