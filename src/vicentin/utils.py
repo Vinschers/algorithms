@@ -15,15 +15,15 @@ def _wrap_func(np_func, tf_func):
         A function that automatically detects the backend based on the input type and scalar flag.
     """
 
-    def wrapped(x, *args, default_for_scalars="np", **kwargs):
+    def wrapped(x, *args, default_fallback="np", **kwargs):
         if isinstance(x, tf.Tensor):
             return tf_func(x, *args, **kwargs)
         elif isinstance(x, np.ndarray):
             return np_func(x, *args, **kwargs)
-        elif isinstance(x, (int, float)):
-            if default_for_scalars == "np":
+        elif isinstance(x, (int, float, list, tuple)):
+            if default_fallback == "np":
                 return np_func(x, *args, **kwargs)  # Use NumPy for scalars
-            elif default_for_scalars == "tf":
+            elif default_fallback == "tf":
                 return tf_func(x, *args, **kwargs)  # Use TensorFlow for scalars
             else:
                 raise ValueError("default_for_scalars must be 'np' or 'tf'")

@@ -3,6 +3,7 @@ import tensorflow as tf
 from skimage.transform import resize as skimage_resize
 from skimage.color import rgb2gray
 from scipy.ndimage import convolve as scipy_convolve, gaussian_filter as scipy_gaussian_filter
+
 from vicentin.utils import _wrap_func, shape, expand_dims, copy, asarray, meshgrid, exp, arange, sum
 
 
@@ -78,7 +79,7 @@ def gaussian_filter(image, sigma):
 
     def _gaussian_kernel(size, sigma):
         """Generates a 2D Gaussian kernel using backend-agnostic operations."""
-        x = arange(-size // 2 + 1, size // 2 + 1, default_for_scalars="tf")
+        x = arange(-size // 2 + 1, size // 2 + 1, default_fallback="tf")
         x, y = meshgrid(x, x)
         kernel = exp(-(x**2 + y**2) / (2.0 * sigma**2))
         return kernel / sum(kernel)

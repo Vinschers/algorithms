@@ -73,7 +73,7 @@ def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="s
 
             costs_list.append(cost_vals)
 
-    cost_volume = stack(costs_list, axis=-1)  # (N, nDisp)
+    cost_volume = stack(array(costs_list), axis=-1)  # (N, nDisp)
     nDisp = cost_volume.shape[-1]
 
     # ----------------------------------------------------------------
