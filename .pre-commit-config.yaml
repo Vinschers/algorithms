@@ -16,13 +16,6 @@ repos:
         language: system
         types: [python]
         args: ["--fast", "--line-length", "150", "--check"]
-      - id: bump-version
-        name: Bump Version
-        entry: bash -c "./bump_version.sh patch"
-        language: system
-        pass_filenames: false
-        stages:
-          - pre-commit
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v2.42.0

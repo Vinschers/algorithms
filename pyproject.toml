@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vicentin"
-version = "0.6.7"
+version = "0.7.0"
 description = "Personal collection of algorithms."
 readme = "README.md"
-requires-python = ">=3.9"
-dependencies = [ "numpy", "scipy", "jax", "networkx"]
+requires-python = ">=3.8, <=3.12"
+dependencies = [ "numpy", "scipy", "scikit-image", "networkx", "tensorflow", "tensorflow_probability"]
 classifiers = [ "Programming Language :: Python :: 3", "Operating System :: OS Independent",]
 [[project.authors]]
 name = "Felipe Vicentin"

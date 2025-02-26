@@ -1,4 +1,4 @@
-from vicentin.utils import norm, dot, sum, soft_threshold
+from vicentin.utils import norm, dot, sum, soft_threshold, copy, scalar
 
 
 def proximal_gradient_descent(F, dF, prox, x0, step_size, line_search=False, max_iter=100, tol=1e-6):
@@ -22,7 +22,7 @@ def proximal_gradient_descent(F, dF, prox, x0, step_size, line_search=False, max
         `prox(x, gamma)`, where:
             - `x` is the input vector.
             - `gamma` is the step size.
-    x0 : array-like
+    x0 : array-like | Tensor
         The initial point for the optimization.
     step_size : float
         The initial step size (learning rate) for gradient descent.
@@ -35,24 +35,25 @@ def proximal_gradient_descent(F, dF, prox, x0, step_size, line_search=False, max
 
     Returns:
     -------
-    x : array-like
+    x : array-like | Tensor
         The optimal solution found by the algorithm.
     loss : list of floats
         A list of function values `F(x)` at each iteration.
     """
 
-    x = x0.copy()
+    x = copy(x0)
+
     loss = []
 
     for _ in range(max_iter):
         grad = dF(x)
-        next_x = prox(x - step_size * grad)
+        next_x = prox(x - step_size * grad, step_size)
 
         if line_search:
             gamma = step_size
 
             # Test Lipschitz condition
-            while F(next_x) > F(x) + dot(grad, next_x - x) + sum((next_x - x) ** 2) / (2 * gamma):
+            while scalar(F(next_x)) > scalar(F(x)) + dot(grad, next_x - x) + sum((next_x - x) ** 2) / (2 * gamma):
                 gamma /= 2
                 next_x = prox(x - gamma * grad, gamma)
 
@@ -60,9 +61,10 @@ def proximal_gradient_descent(F, dF, prox, x0, step_size, line_search=False, max
 
         x = next_x
 
-        loss.append(F(x))
+        # Ensure loss is a Python float
+        loss.append(scalar(F(x)))
 
-        if norm(grad) < tol:
+        if scalar(norm(grad)) < tol:
             break
 
     return x, loss
@@ -78,7 +80,7 @@ def gradient_descent(F, dF, x0, step_size, line_search=False, max_iter=100, tol=
         The objective function to be minimized. It should take a vector `x` as input and return a scalar value.
     dF : callable
         The gradient of `F`, returning the derivative (gradient vector) at a given `x`.
-    x0 : array-like
+    x0 : array-like | Tensor
         The starting point for the optimization.
     step_size : float
         The initial step size (learning rate) for the gradient descent updates. Theoretically, the step size should be chosen based on the Lipschitz constant of the gradient.
@@ -91,9 +93,9 @@ def gradient_descent(F, dF, x0, step_size, line_search=False, max_iter=100, tol=
 
     Returns:
     -------
-    x : array-like
+    x : array-like | Tensor
         The optimized value of `x` that minimizes `F`.
-    loss : list
+    loss : list of floats
         A list of function values `F(x)` at each iteration.
     """
     return proximal_gradient_descent(F, dF, lambda x, gamma: x, x0, step_size, line_search, max_iter, tol)
@@ -120,7 +122,7 @@ def lasso_gradient_descent(F, dF, x0, step_size, lamb, line_search=False, max_it
         The objective function to be minimized (should include the squared loss term).
     dF : callable
         The gradient of the smooth part `f(x)`, returning a gradient vector.
-    x0 : array-like
+    x0 : array-like | Tensor
         The starting point for the optimization.
     step_size : float
         The initial step size (learning rate).
@@ -135,7 +137,7 @@ def lasso_gradient_descent(F, dF, x0, step_size, lamb, line_search=False, max_it
 
     Returns:
     -------
-    x : array-like
+    x : array-like | Tensor
         The optimal solution found by the algorithm.
     loss : list of floats
         A list of function values `F(x)` at each iteration.

@@ -1,4 +1,4 @@
-from vicentin.utils import array, isnan, sum, zeros
+from vicentin.utils import array, isnan, sum, stack, where, zeros_like
 
 from vicentin.image.utils import convolve, gaussian_filter
 from vicentin.image.differentiation import grad
@@ -9,7 +9,7 @@ def horn_schunck(img1, img2, u0, v0, alpha=100, iters=100, blur=1):
     Computes the optical flow between two images using the Horn-Schunck method.
 
     This method is based on the original paper:
-    Horn, B.K.P., and Schunck, B.G., "Determining Optical Flow," 
+    Horn, B.K.P., and Schunck, B.G., "Determining Optical Flow,"
     Artificial Intelligence, Vol. 17, No. 1-3, August 1981, pp. 185-203.
     [Link: http://dspace.mit.edu/handle/1721.1/6337]
 
@@ -71,11 +71,8 @@ def horn_schunck(img1, img2, u0, v0, alpha=100, iters=100, blur=1):
         u = uAvg - fx * aux
         v = vAvg - fy * aux
 
-    u[isnan(u)] = 0
-    v[isnan(v)] = 0
+    u = where(isnan(u), zeros_like(u), u)
+    v = where(isnan(v), zeros_like(v), v)
 
-    mvf = zeros((H, W, 2))
-    mvf[..., 0] = v
-    mvf[..., 1] = u
-
+    mvf = stack([v, u], axis=-1)
     return mvf

@@ -1,4 +1,4 @@
-from vicentin.utils import exp, sqrt, eigh, argsort, sum
+from vicentin.utils import exp, sqrt, eigh, argsort, sum, expand_dims, where, matmul, shape, index_select, cast
 
 
 def rbf(sigma):
@@ -34,13 +34,6 @@ def KPCA(X, kernel, k=-1):
     The function assumes the data has d features. The kernel function should accept two inputs
     (e.g., pairs of feature vectors) and return their similarity.
 
-    The function returns:
-        - Y: The projection of the centered kernel matrix onto the top k principal components.
-        - components: A matrix where each row is a principal component (eigenvector) derived from the kernel matrix.
-        - eigenvalues: The eigenvalues corresponding to the selected principal components.
-        - K: The original kernel matrix computed from X.
-        - var_explained: The fraction of total variance explained by each of the top k principal components.
-
     Args:
         X (ndarray): A 2D array of shape (N, d), where N is the number of samples and d is the number of features.
         kernel (function): A kernel function that computes the similarity between pairs of samples.
@@ -53,18 +46,16 @@ def KPCA(X, kernel, k=-1):
             - components (ndarray): A 2D array of shape (k, N) where each row is a principal component.
             - eigenvalues (ndarray): A 1D array of length k containing the eigenvalues of the centered kernel matrix.
             - K (ndarray): The centered kernel matrix of shape (N, N).
-            - var_explained (ndarray): A 1D array of length k representing the proportion of variance explained
-                                             by each principal component.
     """
-    assert len(X.shape) == 2, "X must be a 2D array."
+    assert len(shape(X)) == 2, "X must be a 2D array."
 
-    N = X.shape[0]
+    N = shape(X)[0]
 
     if k == -1:
         k = N
 
-    Xi = X[:, None, :]
-    Xj = X[None, :, :]
+    Xi = expand_dims(X, axis=1)
+    Xj = expand_dims(X, axis=0)
 
     K = kernel(Xi, Xj)
 
@@ -76,20 +67,19 @@ def KPCA(X, kernel, k=-1):
 
     D, U = eigh(Kc)
 
-    idx = argsort(D)[::-1]
-    D = D[idx]
-    U = U[:, idx]
+    idx = argsort(D, direction="DESCENDING")
+    D = index_select(D, idx, axis=0)
+    U = index_select(U, idx, axis=1)
 
-    D[D <= 0] = 1e-18  # Make non-positive eigenvalues positive and close to 0
+    D = where(D <= 0, cast(1e-18, D.dtype), D)  # Make non-positive eigenvalues positive and close to 0
+    D = D[:k]
 
     U = U / sqrt((N - 1) * D[None, :])  # Scailing eigenvectors
 
     L = U[:, :k]  # Each column is an eigenvector
-    Y = Kc @ L  # Projection of data
+    Y = matmul(Kc, L)  # Projection of data
 
-    var_explained = D[:k] / sum(D)
-
-    return Y, L.T, D[:k], K, var_explained
+    return Y, L.T, D, K
 
 
 def KPCA_project(t, X, L, K, kernel):
@@ -101,22 +91,25 @@ def KPCA_project(t, X, L, K, kernel):
     onto the KPCA components (contained in L).
 
     Args:
-        t (ndarray): A 2D array of new data points of shape (n_new, d), where d is the number of features.
-        X (ndarray): The original dataset used to compute the kernel PCA, with shape (N, d).
-        L (ndarray): The principal component matrix obtained from KPCA (typically with shape (N, k) or (k, N)
-                           depending on implementation), used for projection.
-        K (ndarray): The original kernel matrix computed from X of shape (N, N).
+        t (ndarray | Tensor): A 2D array of new data points of shape (n_new, d), where d is the number of features.
+        X (ndarray | Tensor): The original dataset used to compute the kernel PCA, with shape (N, d).
+        L (ndarray | Tensor): The principal component matrix obtained from KPCA (typically with shape (N, k) or (k, N)
+                                 depending on implementation), used for projection.
+        K (ndarray | Tensor): The original kernel matrix computed from X of shape (N, N).
         kernel (function): A kernel function that computes the similarity between data points.
 
     Returns:
-        numpy.ndarray:
+        ndarray | tf.Tensor:
             A 2D array representing the projection of the new data t onto the kernel PCA components.
     """
-    N = X.shape[0]
 
-    Xi = X[:, None, :]
+    N = shape(X)[0]
+
+    Xi = expand_dims(X, axis=1)
+
     k = kernel(t, Xi)
 
+    # Centering kc
     kc = k - sum(k, axis=1, keepdims=True) / N - sum(K, axis=0) / N + sum(K) / (N**2)
 
-    return kc @ L
+    return matmul(kc, L)

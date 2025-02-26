@@ -42,7 +42,7 @@ def _compute_edges(H, W, L, img, weight_func, neighborhood):
             for k in range(L):
                 u_id = row * (W * L) + col * L + k
 
-                for neighbor in get_neighbors(H, W, L, row, col, k, neighborhood):
+                for neighbor in get_neighbors(img, row, col, k, neighborhood):
                     v_id = neighbor[0] * (W * L) + neighbor[1] * L + neighbor[2]
 
                     weight = weight_func(flatten_img[u_id], flatten_img[v_id])

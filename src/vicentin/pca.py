@@ -1,4 +1,4 @@
-from vicentin.utils import min, mean, SVD
+from vicentin.utils import min, mean, SVD, sum, shape, matmul, cast
 
 
 def PCA(X, k=-1):
@@ -10,12 +10,6 @@ def PCA(X, k=-1):
     centers the data, computes its SVD, and selects the top k principal components based on the eigenvalues of the
     covariance matrix.
 
-    The function returns:
-        - Y: The projection of the centered data onto the top k principal components, yielding a reduced representation.
-        - components: A matrix where each row corresponds to a principal component (eigenvector) sorted by descending eigenvalue.
-        - eigenvalues: The eigenvalues associated with the selected principal components, representing the variance captured.
-        - var_explained: The fraction of total variance explained by each of the top k principal components.
-
     Time Complexity:
         - O(N * d^2), where N is the number of samples and d is the number of features (assuming efficient SVD computation).
 
@@ -23,40 +17,50 @@ def PCA(X, k=-1):
         - O(d^2), primarily for storing the covariance matrix approximation and singular vectors.
 
     Args:
-        X (ndarray): A 2D array of shape (N, d), where N is the number of samples and d is the number of features.
+        X (ndarray | Tensor): A 2D array or Tensor of shape (N, d), where N is the number of samples and d is the number of features.
         k (int, optional): The number of principal components to retain. If k is negative, the function uses
                            min(N, d) components. Otherwise, k is bounded by min(N, d). Defaults to -1.
 
     Returns:
         tuple:
-            - Y (ndarray): A 2D array of shape (N, k) containing the projection of X onto the top k principal components.
-            - components (ndarray): A 2D array of shape (k, d) where each row is a principal component (eigenvector).
-            - eigenvalues (ndarray): A 1D array of length k containing the eigenvalues of the covariance matrix corresponding
-                                           to the selected components.
-            - var_explained (ndarray): A 1D array of length k representing the proportion of total variance explained by each
-                                             principal component.
+            - Y (ndarray | Tensor): A 2D array of shape (N, k) containing the projection of X onto the top k principal components.
+            - components (ndarray | Tensor): A 2D array of shape (k, d) where each row is a principal component (eigenvector).
+            - eigenvalues (ndarray | Tensor): A 1D array of length k containing the eigenvalues of the covariance matrix corresponding
+                                              to the selected components.
+            - var_explained (ndarray | Tensor): A 1D array of length k representing the proportion of total variance explained by each
+                                                principal component.
 
     Raises:
         AssertionError: If X is not a 2D array.
     """
-    assert len(X.shape) == 2, "X must be a 2D array."
+    assert len(shape(X)) == 2, "X must be a 2D array."
 
-    N = X.shape[0]
+    N = shape(X)[0]
+    d = shape(X)[1]
 
     if k < 0:
-        k = min(N, X.shape[1])
+        k = min(N, d)
     else:
-        k = min(k, min(N, X.shape[1]))
+        k = min(k, min(N, d))
 
+    # Center the data
     Xc = X - mean(X, axis=0)
-    _, S, Vt = SVD(Xc, full_matrices=False)  # Covariance is C = (V S^2 V^T) / (N - 1)
-    U = Vt.T
 
+    # Perform Singular Value Decomposition
+    _, S, Vt = SVD(Xc, full_matrices=False)
+
+    # Compute eigenvalues
+    N = cast(N, dtype=S.dtype)
     D = (S**2) / (N - 1)
 
-    L = U[:, :k]  # Each column is an eigenvector
-    Y = Xc @ L
+    # Compute eigenvectors
+    U = Vt.T
 
+    # Select top-k components
+    L = U[:, :k]
+    Y = matmul(Xc, L)  # Projection of data
+
+    # Calculate the explained variance
     var_explained = D[:k] / sum(D)
 
     return Y, L.T, D[:k], var_explained

@@ -1,4 +1,4 @@
-from vicentin.utils import norm, solve
+from vicentin.utils import norm, solve, copy, scalar
 
 
 def newton_raphson(f, Jf, x0, max_iter=100, tol=1e-6):
@@ -30,7 +30,7 @@ def newton_raphson(f, Jf, x0, max_iter=100, tol=1e-6):
         Function that returns the system of nonlinear equations evaluated at `x`.
     Jf : callable
         Function that returns the Jacobian matrix of `f` at `x`.
-    x0 : numpy.ndarray
+    x0 : ndarray | Tensor
         Initial guess for the solution.
     max_iter : int, optional (default=100)
         Maximum number of iterations.
@@ -39,21 +39,24 @@ def newton_raphson(f, Jf, x0, max_iter=100, tol=1e-6):
 
     Returns:
     -------
-    x : numpy.ndarray
+    x : ndarray | Tensor
         The approximate solution to f(x) = 0.
     loss : list of float
         A list of ||f(x)|| at each iteration, useful for analyzing convergence.
     """
-    x = x0.copy()
+
+    x = copy(x0)
+
     loss = []
 
     for _ in range(max_iter):
-        dx = solve(Jf(x), f(x))
-        x = x - dx
+        dx = solve(Jf(x), f(x))  # Solve Jf(x) dx = f(x)
+        x = x - dx  # Update x
 
-        f_norm = norm(f(x))
+        f_norm = scalar(norm(f(x)))
 
         loss.append(f_norm)
+
         if f_norm < tol:
             break
 
