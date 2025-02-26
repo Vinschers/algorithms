@@ -2,7 +2,7 @@ from vicentin.utils import pad, sum, inf, abs, zeros, median, shape, stack, arra
 from vicentin.image.utils import img2blocks
 
 
-def block_matching_vectorized(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="ssd", lamb=0.0):
+def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="ssd", lamb=0.0):
     """
     Efficient block-matching motion estimation.
 
