@@ -133,7 +133,7 @@ def img2blocks(img, block_shape, step_row, step_col):
     def _img2blocks_tf(img, block_shape, step_row, step_col):
         """TensorFlow implementation using tf.image.extract_patches."""
         img = expand_dims(img, axis=0)
-        img = expand_dims(img, axis=-1) if len(shape(img)) == 2 else img
+        img = expand_dims(img, axis=-1) if len(shape(img)) == 3 else img
         bH, bW = block_shape
         blocks = tf.image.extract_patches(images=img, sizes=[1, bH, bW, 1], strides=[1, step_row, step_col, 1], rates=[1, 1, 1, 1], padding="VALID")
         return blocks[0]

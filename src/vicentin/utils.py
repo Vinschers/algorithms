@@ -16,17 +16,22 @@ def _wrap_func(np_func, tf_func):
     """
 
     def wrapped(x, *args, default_fallback="np", **kwargs):
-        if isinstance(x, tf.Tensor):
+        t = x
+
+        while isinstance(t, (list, tuple)) and len(t) > 0:
+            t = t[0]
+
+        if isinstance(t, tf.Tensor):
             return tf_func(x, *args, **kwargs)
-        elif isinstance(x, np.ndarray):
+        elif isinstance(t, (np.ndarray, np.generic)):
             return np_func(x, *args, **kwargs)
-        elif isinstance(x, (int, float, list, tuple)):
+        elif isinstance(t, (int, float)):
             if default_fallback == "np":
                 return np_func(x, *args, **kwargs)  # Use NumPy for scalars
             elif default_fallback == "tf":
                 return tf_func(x, *args, **kwargs)  # Use TensorFlow for scalars
             else:
-                raise ValueError("default_for_scalars must be 'np' or 'tf'")
+                raise ValueError("default_fallback must be 'np' or 'tf'")
         else:
             raise TypeError(f"Unsupported type: {type(x)}. Expected numpy.ndarray, tf.Tensor, or scalar.")
 
@@ -59,6 +64,7 @@ def _pad_tf(tensor, pad_width, mode="CONSTANT", **kwargs):
 pad = _wrap_func(np.pad, _pad_tf)
 
 repeat = _wrap_func(np.repeat, tf.repeat)
+reshape = _wrap_func(np.reshape, tf.reshape)
 stack = _wrap_func(np.stack, tf.stack)
 tile = _wrap_func(np.tile, tf.tile)
 zeros = _wrap_func(np.zeros, tf.zeros)
@@ -114,7 +120,15 @@ isnan = _wrap_func(np.isnan, tf.math.is_nan)
 copy = _wrap_func(lambda x: x.copy(), tf.identity)
 scalar = _wrap_func(lambda x: float(x), lambda x: x.numpy().item())
 shape = _wrap_func(np.shape, lambda x: x.shape.as_list())
-cast = _wrap_func(np.asarray, tf.cast)
+
+
+def cast(x, target_type):
+    if isinstance(target_type, np.dtype):
+        return np.asarray(x, dtype=target_type)
+    elif isinstance(target_type, tf.DType):
+        return tf.cast(x, target_type)
+    else:
+        raise ValueError("Unsupported type provided for casting.")
 
 
 def _roll_tf(x, shift, axis):

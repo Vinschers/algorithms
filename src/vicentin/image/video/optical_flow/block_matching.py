@@ -1,26 +1,13 @@
-from vicentin.utils import pad, sum, inf, abs, zeros, median, shape, stack, array
+from vicentin.utils import pad, sum, abs, zeros, median, shape, stack, array, cast, reshape, argmin, repeat
 from vicentin.image.utils import img2blocks
 
 
-def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="ssd", lamb=0.0):
+def _check_and_prepare_shapes(cur, block_shape):
     """
-    Efficient block-matching motion estimation.
-
-    This function estimates the motion vector field (MVF) between two consecutive frames
-    using block-matching. It extracts blocks from the current frame and searches for
-    the best match in the reference frame within a given search radius.
-
-    Args:
-        ref (ndarray or tf.Tensor): Reference (previous) frame, 2D shape (H, W).
-        cur (ndarray or tf.Tensor): Current frame, 2D shape (H, W).
-        block_shape (tuple): (bH, bW) size of each block.
-        search_radius (int): Radius for block search.
-        cost_method (str): "ssd" (Sum of Squared Differences) or "sad" (Sum of Absolute Differences).
-        lamb (float): Smoothness weight to penalize large deviations from neighbor median.
+    Checks and returns dimensions for block matching.
 
     Returns:
-        mvf (ndarray or tf.Tensor): The final motion vector field of shape (H, W, 2).
-                                    If a block in 'cur' moves by (dy, dx), mvf contains (-dy, -dx).
+        (H, W, bH, bW, nRows, nCols, N)
     """
     H, W = shape(cur)[:2]
     bH, bW = block_shape
@@ -31,39 +18,65 @@ def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="s
     nRows = H // bH
     nCols = W // bW
     N = nRows * nCols  # total number of blocks
-    lamb_scaled = lamb * bH * bW
+    return H, W, bH, bW, nRows, nCols, N
 
-    # Pad the reference so we can slice valid areas easily for each displacement
-    pad_ref = pad(ref, pad_width=search_radius, mode="edge")
 
-    # ----------------------------------------------------------------
-    # 1) Extract Blocks from the Current Frame
-    # ----------------------------------------------------------------
-    cur_blocks_4d = img2blocks(cur, block_shape, step_row=bH, step_col=bW)
-    cur_blocks = cur_blocks_4d.reshape((N, bH, bW))
+def _pad_reference(ref, search_radius):
+    """
+    Pads the reference frame so that searching near edges is possible.
+    """
+    pad_width = [[search_radius, search_radius], [search_radius, search_radius]]
+    return pad(ref, pad_width, mode="edge")
 
-    # ----------------------------------------------------------------
-    # 2) Build a "cost volume" over all candidate displacements
-    #    cost_volume shape => (N, nDisp)
-    # ----------------------------------------------------------------
+
+def _extract_blocks(frame, block_shape, step_row, step_col):
+    """
+    Extracts 2D blocks from 'frame' (H,W) => returns a 4D structure.
+    The caller may reshape further into (N, bH, bW).
+    """
+    blocks_4d = img2blocks(frame, block_shape, step_row=step_row, step_col=step_col)
+    return blocks_4d
+
+
+def _build_cost_volume(pad_ref, cur_blocks, H, W, block_shape, search_radius, cost_method, dtype_for_disp):
+    """
+    Builds the cost volume of shape (N, nDisp) plus the array of candidate displacements.
+
+    Args:
+        pad_ref: Padded reference frame (2D array/tensor).
+        cur_blocks: (N, bH, bW) blocks from the 'cur' frame.
+        H, W: height/width of the unpadded reference.
+        block_shape: (bH, bW).
+        search_radius: +/- offset for block search.
+        cost_method: "ssd" or "sad".
+        dtype_for_disp: dtype to cast displacements (should match 'cur' dtype).
+
+    Returns:
+        cost_volume (N, nDisp)
+        all_disp (nDisp, 2)   # each displacement (drow, dcol)
+    """
+    N = shape(cur_blocks)[0]  # total number of blocks
+    bH, bW = block_shape
+
     displacements = []
-    costs_list = []  # each entry will be shape (N,)
+    costs_list = []
 
+    # For each candidate displacement, shift the padded ref, extract blocks, compute cost
     for drow in range(-search_radius, search_radius + 1):
         for dcol in range(-search_radius, search_radius + 1):
-            # Keep track of this candidate displacement
-            # Note: final motion is opposite sign => We'll store them as (drow, dcol)
-            # but we recall that the user ultimately wants -mvf
-            displacements.append((drow, dcol))
+            # Store displacements as e.g. float32 if your 'cur' is float32
+            displacements.append(cast((drow, dcol), dtype_for_disp))
 
+            # Slice the padded reference to align with (drow, dcol)
             top = search_radius - drow
             left = search_radius - dcol
             ref_shifted = pad_ref[top : top + H, left : left + W]
 
-            # Extract the same blocks from this shifted reference
-            ref_blocks_4d = img2blocks(ref_shifted, block_shape, step_row=bH, step_col=bW)
-            ref_blocks = ref_blocks_4d.reshape((N, bH, bW))
+            # Extract blocks from shifted ref => shape (N, bH, bW)
+            ref_blocks_4d = _extract_blocks(ref_shifted, block_shape, step_row=bH, step_col=bW)
+            ref_blocks = reshape(ref_blocks_4d, (N, bH, bW))
 
+            # Compute cost
             if cost_method == "ssd":
                 cost_vals = sum((cur_blocks - ref_blocks) ** 2, axis=(1, 2))
             elif cost_method == "sad":
@@ -73,69 +86,146 @@ def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="s
 
             costs_list.append(cost_vals)
 
-    cost_volume = stack(array(costs_list), axis=-1)  # (N, nDisp)
-    nDisp = cost_volume.shape[-1]
+    # Stack => (N, nDisp)
+    cost_volume = stack(array(costs_list), axis=-1)
+    # Turn displacements into a (nDisp, 2) array/tensor
+    all_disp = array(displacements)
 
-    # ----------------------------------------------------------------
-    # 3) Compute the final block displacement with neighbor-based penalty
-    #    We'll store in 'block_vectors' => (nRows, nCols, 2)
-    # ----------------------------------------------------------------
-    block_vectors = zeros((nRows, nCols, 2))
+    return cost_volume, all_disp
 
-    def _penalty(d, pV):
-        """Compute smoothness penalty for displacement d vs. median pV."""
-        if cost_method == "sad":
-            return sum(abs(d - pV)) * lamb_scaled
+
+def _compute_blockwise_disp(cost_volume, all_disp, nRows, nCols, cost_method, lamb_scaled):
+    """
+    Computes blockwise displacements with neighbor smoothing, in a single pass from top-left to bottom-right.
+
+    Args:
+        cost_volume: shape (N, nDisp)
+        all_disp:    shape (nDisp, 2)
+        nRows, nCols (int): grid dimensions (blocks)
+        cost_method (str): "ssd" or "sad"
+        lamb_scaled (float): lambda * block_area
+
+    Returns:
+        block_vectors: shape (nRows, nCols, 2)
+    """
+    # Number of blocks = nRows * nCols
+    N = nRows * nCols
+
+    # We'll store each block's (dy, dx) in a Python list of length N.
+    # This is more efficient than a nested list [ [ ... ] for row in ... ]
+    # and also avoids issues with TF's immutability if we tried to update a tensor directly.
+    block_vectors_list = [[0.0, 0.0] for _ in range(N)]
+
+    # Precompute neighbor offsets in the 1D index space:
+    #  i = row * nCols + col
+    #  top = i - nCols  (row-1, col)
+    #  left = i - 1     (row, col-1)
+    #  top-left = i - nCols - 1 (row-1, col-1)
+    #
+    # We'll do this inside the loop with simple 'if' checks on row, col.
+
+    for i in range(N):
+        row = i // nCols
+        col = i % nCols
+
+        # Gather neighbors that exist
+        neighbors = []
+        if row > 0:
+            neighbors.append(array(block_vectors_list[i - nCols]))  # top
+        if col > 0:
+            neighbors.append(array(block_vectors_list[i - 1]))  # left
+        if row > 0 and col > 0:
+            neighbors.append(array(block_vectors_list[i - nCols - 1]))  # top-left
+
+        if neighbors:
+            neighbors_tensor = stack(neighbors, axis=0)  # shape (#neighbors, 2)
+            pV = median(neighbors_tensor, axis=0)  # shape (2,)
         else:
-            return sum((d - pV) ** 2) * lamb_scaled
+            pV = zeros((2,))  # default if no neighbors
 
-    for row in range(nRows):
-        for col in range(nCols):
-            i = row * nCols + col
+        # cost_volume[i, :] => shape (nDisp,)
+        raw_costs = cost_volume[i, :]
 
-            neighbors = []
-            if row > 0:
-                neighbors.append(block_vectors[row - 1, col])  # top
-            if col > 0:
-                neighbors.append(block_vectors[row, col - 1])  # left
-            if row > 0 and col > 0:
-                neighbors.append(block_vectors[row - 1, col - 1])  # top-left
+        # Smoothness penalty, vectorized for all displacements
+        if cost_method == "sad":
+            # L1 penalty
+            penalty_disp = sum(abs(all_disp - pV), axis=1) * lamb_scaled  # shape (nDisp,)
+        else:
+            # L2 penalty
+            penalty_disp = sum((all_disp - pV) ** 2, axis=1) * lamb_scaled
 
-            if neighbors:
-                neighbors_tensor = stack(neighbors, axis=0)
-                pV = median(neighbors_tensor, axis=0)
-            else:
-                pV = zeros((2,))
+        penalty_disp = cast(penalty_disp, raw_costs.dtype)
+        total_costs = raw_costs + penalty_disp  # shape (nDisp,)
 
-            # (B) Add penalty for each candidate displacement
-            # cost_volume[i, :] => shape (nDisp,)
-            # We'll add smoothness penalty => shape (nDisp,)
-            best_cost = inf
-            best_d = (0, 0)
+        # Pick displacement that minimizes total_costs
+        idx_min = argmin(total_costs)  # single integer index
+        best_disp = all_disp[idx_min]  # shape (2,)
 
-            for disp_idx in range(nDisp):
-                drow, dcol = displacements[disp_idx]
-                d_vec = array([drow, dcol])  # shape (2,)
-                total_cost = cost_volume[i, disp_idx] + _penalty(d_vec, pV)
+        block_vectors_list[i] = best_disp  # store [dy, dx] in the Python list
 
-                if total_cost < best_cost:
-                    best_cost = total_cost
-                    best_d = (drow, dcol)
+    # Convert final 1D list => shape (N, 2), then reshape => (nRows, nCols, 2)
+    block_vectors = array(block_vectors_list)
+    block_vectors = reshape(block_vectors, (nRows, nCols, 2))
 
-            # Store the best displacement
-            block_vectors[row, col, 0] = best_d[0]
-            block_vectors[row, col, 1] = best_d[1]
+    return block_vectors
 
-    # ----------------------------------------------------------------
-    # 4) Expand block_vectors => full-resolution MVF, shape (H, W, 2)
-    # ----------------------------------------------------------------
-    mvf = zeros((H, W, 2))
-    for row in range(nRows):
-        for col in range(nCols):
-            dy, dx = block_vectors[row, col, 0], block_vectors[row, col, 1]
-            # Fill the entire block region with the chosen vector
-            r0, c0 = row * bH, col * bW
-            mvf[r0 : r0 + bH, c0 : c0 + bW, 0] = dy
-            mvf[r0 : r0 + bH, c0 : c0 + bW, 1] = dx
 
+def _expand_block_vectors(block_vectors, bH, bW, H, W):
+    """
+    Repeats (tiles) the block vectors across each (bH, bW) region -> (H, W, 2).
+    """
+    expanded_vectors = repeat(block_vectors, bH, axis=0)  # shape => (nRows*bH, nCols, 2)
+    expanded_vectors = repeat(expanded_vectors, bW, axis=1)  # shape => (nRows*bH, nCols*bW, 2)
+    mvf = reshape(expanded_vectors, (H, W, 2))
+    return mvf
+
+
+# -------------------------------------------------------------------
+# Public Function
+# -------------------------------------------------------------------
+
+
+def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="ssd", lamb=0.0):
+    """
+    Efficient block-matching motion estimation with neighbor-based smoothing.
+
+    This function estimates the motion vector field (MVF) between two consecutive frames
+    using block-matching. It extracts blocks from the current frame and searches for
+    the best match in the reference frame within a given search radius. Additionally,
+    it includes a smoothness penalty by encouraging each block's displacement to be
+    near the median of its already-computed neighbors (top, left, top-left).
+
+    Args:
+        ref (ndarray or tf.Tensor): Reference (previous) frame, 2D shape (H, W).
+        cur (ndarray or tf.Tensor): Current  frame,   2D shape (H, W).
+        block_shape (tuple): (bH, bW) size of each block.
+        search_radius (int): Radius for block search.
+        cost_method (str): "ssd" (Sum of Squared Differences) or "sad" (Sum of Absolute Differences).
+        lamb (float): Smoothness weight to penalize large deviations from neighbor median.
+
+    Returns:
+        mvf (ndarray or tf.Tensor): The final motion vector field of shape (H, W, 2).
+            If a block in 'cur' moves by (dy, dx), the returned 'mvf' contains (-dy, -dx).
+    """
+    # 1) Dimensions & checks
+    H, W, bH, bW, nRows, nCols, N = _check_and_prepare_shapes(cur, block_shape)
+    lamb_scaled = lamb * bH * bW
+
+    # 2) Pad reference
+    pad_ref = _pad_reference(ref, search_radius)
+
+    # 3) Extract blocks from 'cur'
+    cur_blocks_4d = _extract_blocks(cur, block_shape, step_row=bH, step_col=bW)
+    cur_blocks = reshape(cur_blocks_4d, (N, bH, bW))  # => shape (N, bH, bW)
+
+    # 4) Build cost volume => (N, nDisp), plus the array of all displacements => (nDisp, 2)
+    cost_volume, all_disp = _build_cost_volume(pad_ref, cur_blocks, H, W, block_shape, search_radius, cost_method, dtype_for_disp=cur.dtype)
+
+    # 5) Compute blockwise displacements (with neighbor smoothing)
+    block_vectors = _compute_blockwise_disp(cost_volume, all_disp, nRows, nCols, cost_method, lamb_scaled)
+
+    # 6) Expand block vectors => (H, W, 2)
+    mvf = _expand_block_vectors(block_vectors, bH, bW, H, W)
+
+    # Return negative of motion vectors
     return -mvf
