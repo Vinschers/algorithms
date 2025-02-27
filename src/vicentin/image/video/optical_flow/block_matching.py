@@ -180,11 +180,6 @@ def _expand_block_vectors(block_vectors, bH, bW, H, W):
     return mvf
 
 
-# -------------------------------------------------------------------
-# Public Function
-# -------------------------------------------------------------------
-
-
 def block_matching(ref, cur, block_shape=(8, 8), search_radius=4, cost_method="ssd", lamb=0.0):
     """
     Efficient block-matching motion estimation with neighbor-based smoothing.

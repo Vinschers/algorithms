@@ -106,12 +106,6 @@ def bellman_ford(graph: Graph, source: int):
                 dist[v] = alt
                 prev[v] = u
 
-    for _, edge in graph.edges:
-        u, v, w = edge.source, edge.target, edge.weight
-
-        # check for negative cycle
-        if dist[u] + w < dist[v]:
-            raise ValueError("Graph contains negative cycle")
     return dist, prev
 
 
