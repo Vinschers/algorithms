@@ -38,7 +38,26 @@ arange = _wrap_func(np.arange, tf.range)
 array = _wrap_func(np.array, tf.convert_to_tensor)
 asarray = _wrap_func(np.asarray, tf.convert_to_tensor)
 expand_dims = _wrap_func(np.expand_dims, tf.expand_dims)
-pad = _wrap_func(np.pad, tf.pad)
+
+
+def _pad_tf(tensor, pad_width, mode="CONSTANT", **kwargs):
+    tf_mode = mode.upper()
+
+    # Convert pad_width to TensorFlow format: [[before_dim1, after_dim1], ...]
+    pad_tf_format = [[pad_width[i], pad_width[i]] if isinstance(pad_width[i], int) else pad_width[i] for i in range(len(shape(tensor)))]
+
+    # Handle 'edge' mode conversion (NumPy 'edge' ≈ TF 'SYMMETRIC')
+    if mode == "edge":
+        tf_mode = "SYMMETRIC"
+
+    # Handle constant_values separately (NumPy allows it inside **kwargs)
+    constant_values = kwargs.pop("constant_values", 0)
+
+    return tf.pad(tensor, pad_tf_format, mode=tf_mode, constant_values=constant_values)
+
+
+pad = _wrap_func(np.pad, _pad_tf)
+
 repeat = _wrap_func(np.repeat, tf.repeat)
 stack = _wrap_func(np.stack, tf.stack)
 tile = _wrap_func(np.tile, tf.tile)
