@@ -1,4 +1,4 @@
-from vicentin.utils import exp, sqrt, eigh, argsort, sum, expand_dims, where, matmul, shape, index_select, cast
+from vicentin.utils import exp, sqrt, eigh, argsort, sum, expand_dims, where, matmul, shape, index_select, cast, transpose
 
 
 def rbf(sigma):
@@ -79,7 +79,7 @@ def KPCA(X, kernel, k=-1):
     L = U[:, :k]  # Each column is an eigenvector
     Y = matmul(Kc, L)  # Projection of data
 
-    return Y, L.T, D, K
+    return Y, transpose(L), D, K
 
 
 def KPCA_project(t, X, L, K, kernel):

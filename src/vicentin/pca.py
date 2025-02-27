@@ -1,4 +1,4 @@
-from vicentin.utils import min, mean, SVD, sum, shape, matmul, cast
+from vicentin.utils import min, mean, SVD, sum, shape, matmul, transpose
 
 
 def PCA(X, k=-1):
@@ -50,7 +50,6 @@ def PCA(X, k=-1):
     _, S, Vt = SVD(Xc, full_matrices=False)
 
     # Compute eigenvalues
-    N = cast(N, dtype=S.dtype)
     D = (S**2) / (N - 1)
 
     # Compute eigenvectors
@@ -63,4 +62,4 @@ def PCA(X, k=-1):
     # Calculate the explained variance
     var_explained = D[:k] / sum(D)
 
-    return Y, L.T, D[:k], var_explained
+    return Y, transpose(L), D[:k], var_explained
