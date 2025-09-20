@@ -23,13 +23,13 @@
 ---
 
 ## **Features**
-- **Data Structures** – Stacks, Graphs, Heaps, Priority Queues, Tries
-- **Dynamic Programming** – Knapsack, Matrix Chain Multiplication, Rod Cutting
-- **Graph Algorithms** – Minimum Spanning Tree (MST), Shortest Path
-- **Image Processing** – Optical Flow, Differentiation, Regularization
-- **Optimization** – Gradient Descent
-- **Sorting** – Heap Sort
-- **Mathematical Tools** – PCA, Kernel PCA, Polynomial Operations
+- **Data Structures**: [Queue](src/vicentin/data_structures/queue.py), [Stack](src/vicentin/data_structures/stack.py), [Graph](src/vicentin/data_structures/graph.py), [Heap](src/vicentin/data_structures/heap.py), [Priority Queue](src/vicentin/data_structures/priority_queue.py), [Trie](src/vicentin/data_structures/trie.py), [Union Find](src/vicentin/data_structures/union_find.py)
+- **Dynamic Programming**: Knapsack, Matrix Chain Multiplication, Rod Cutting
+- **Graph Algorithms**: Minimum Spanning Tree (MST), Shortest Path
+- **Image Processing**: Optical Flow, Differentiation, Regularization
+- **Optimization**: Gradient Descent
+- **Sorting**: Heap Sort
+- **Mathematical Tools**: PCA, Kernel PCA, Polynomial Operations
 
 ---
 
