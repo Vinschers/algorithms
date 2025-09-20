@@ -23,7 +23,7 @@
 ---
 
 ## **Features**
-- **Data Structures** – Graphs, Heaps, Priority Queues
+- **Data Structures** – Stacks, Graphs, Heaps, Priority Queues, Tries
 - **Dynamic Programming** – Knapsack, Matrix Chain Multiplication, Rod Cutting
 - **Graph Algorithms** – Minimum Spanning Tree (MST), Shortest Path
 - **Image Processing** – Optical Flow, Differentiation, Regularization
@@ -86,6 +86,11 @@ pip install pre-commit
 ### **2️⃣ Install Hooks**
 ```bash
 pre-commit install
+```
+
+### 3️⃣ Use [`commitizen`](https://commitizen-tools.github.io/commitizen/) to commit
+```bash
+cz commit
 ```
 
 ---
