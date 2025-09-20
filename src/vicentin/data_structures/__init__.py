@@ -5,3 +5,4 @@ from .stack import Stack
 from .trie import Trie
 from .queue import Queue
 from .union_find import UnionFind
+from .tree import Tree

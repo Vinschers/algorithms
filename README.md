@@ -23,7 +23,7 @@
 ---
 
 ## **Features**
-- **Data Structures**: [Queue](src/vicentin/data_structures/queue.py), [Stack](src/vicentin/data_structures/stack.py), [Graph](src/vicentin/data_structures/graph.py), [Heap](src/vicentin/data_structures/heap.py), [Priority Queue](src/vicentin/data_structures/priority_queue.py), [Trie](src/vicentin/data_structures/trie.py), [Union Find](src/vicentin/data_structures/union_find.py)
+- **Data Structures**: [Queue](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/queue.py), [Stack](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/stack.py), [Tree](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/tree.py), [Graph](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/graph.py), [Heap](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/heap.py), [Priority Queue](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/priority_queue.py), [Trie](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/trie.py), [Union Find](https://github.com/Vinschers/algorithms/tree/main/src/vicentin/data_structures/union_find.py)
 - **Dynamic Programming**: Knapsack, Matrix Chain Multiplication, Rod Cutting
 - **Graph Algorithms**: Minimum Spanning Tree (MST), Shortest Path
 - **Image Processing**: Optical Flow, Differentiation, Regularization
