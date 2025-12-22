@@ -172,7 +172,7 @@ class _AVLTreeNode(_TreeNode):
 
 class _AVLTree:
     """
-    An AVL Tree — a self-balancing Binary Search Tree.
+    An AVL Tree: a self-balancing Binary Search Tree.
 
     This implementation supports:
     - Inserting values with automatic balancing.
@@ -665,7 +665,9 @@ class _RedBlackTree:
                     self._left_rotate(parent)
                     if parent:
                         w = parent.right
-                if self._is_black(w.left if w else None) and self._is_black(w.right if w else None):
+                if self._is_black(w.left if w else None) and self._is_black(
+                    w.right if w else None
+                ):
                     if w:
                         w.color = "RED"
                     x = parent
@@ -695,7 +697,9 @@ class _RedBlackTree:
                     parent.color = "RED"
                     self._right_rotate(parent)
                     w = parent.left
-                if self._is_black(w.left if w else None) and self._is_black(w.right if w else None):
+                if self._is_black(w.left if w else None) and self._is_black(
+                    w.right if w else None
+                ):
                     if w:
                         w.color = "RED"
                     x = parent

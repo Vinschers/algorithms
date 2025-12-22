@@ -1,0 +1,1 @@
+from .matrix_multiplication import matrix_chain_order

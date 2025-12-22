@@ -106,8 +106,57 @@ def bellman_ford(graph: Graph, source: int):
                 dist[v] = alt
                 prev[v] = u
 
+    for _, edge in graph.edges:
+        u, v, w = edge.source, edge.target, edge.weight
+        if dist[u] + w < dist[v]:
+            raise ValueError("Graph contains a negative weight cycle")
+
     return dist, prev
 
 
-def floyd_warshall():
-    pass
+def floyd_warshall(graph: Graph):
+    """
+    Computes the shortest paths between all pairs of vertices in a weighted graph
+    using the Floyd–Warshall algorithm.
+
+    Unlike Dijkstra’s and Bellman–Ford algorithms, which compute paths from a single source,
+    Floyd–Warshall simultaneously computes the shortest paths between every pair of vertices.
+    It can handle graphs with negative edge weights and detect negative weight cycles.
+
+    Time Complexity:
+        - O(V^3), where V is the number of vertices.
+
+    Space Complexity:
+        - O(V^2), for storing the distance matrix.
+
+    Args:
+        graph (Graph): The graph on which to run the Floyd–Warshall algorithm.
+
+    Returns:
+        dict[int, dict[int, float]]:
+            - A nested dictionary `dists` where `dists[u][v]` represents the shortest distance
+              from vertex `u` to vertex `v`. If no path exists between `u` and `v`,
+              the value will be infinity.
+
+    Raises:
+        ValueError: If a negative weight cycle is detected in the graph.
+    """
+    dists = defaultdict(lambda: defaultdict(lambda: inf))
+
+    for edge in graph.edges:
+        u, v, w = edge.source, edge.target, edge.weight
+        dists[u][v] = w
+
+    for v in graph.vertices:
+        dists[v][v] = 0
+
+    for k in graph.vertices:
+        for i in graph.vertices:
+            for j in graph.vertices:
+                dists[i][j] = min(dists[i][j], dists[i][k] + dists[k][j])
+
+    for v in graph.vertices:
+        if dists[v][v] < 0:
+            raise ValueError("Graph contains a negative weight cycle")
+
+    return dists
