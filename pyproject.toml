@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vicentin"
-version = "0.8.4"
+dynamic = ["version"]
 description = "Personal collection of algorithms."
 readme = "README.md"
 requires-python = ">=3.8, <3.13"
-dependencies = [ "numpy", "scipy", "scikit-image", "networkx", "tensorflow", "tensorflow_probability", "tf-keras"]
+dependencies = [ "numpy", "scipy", "scikit-image", "networkx"]
 classifiers = [ "Programming Language :: Python :: 3", "Operating System :: OS Independent",]
 [[project.authors]]
 name = "Felipe Vicentin"
@@ -23,3 +23,6 @@ Homepage = "https://github.com/Vinschers/algorithms"
 [tool.setuptools.packages.find]
 where = [ "src",]
 exclude = [ "tests", "docs",]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
