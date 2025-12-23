@@ -1,5 +1,5 @@
-from ..data_structures import Graph
-from .shortest_path import bellman_ford
+from vicentin.data_structures import Graph
+from vicentin.graph.shortest_path import bellman_ford
 
 
 def negative_cycle(graph: Graph, source: int):

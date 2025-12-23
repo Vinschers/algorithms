@@ -1,7 +1,7 @@
 from math import inf
 from collections import defaultdict
 
-from ..data_structures import Graph, PriorityQueue
+from vicentin.data_structures import Graph, PriorityQueue
 
 
 def dijkstra(graph: Graph, source: int):
