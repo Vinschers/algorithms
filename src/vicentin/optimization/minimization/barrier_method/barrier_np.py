@@ -41,6 +41,9 @@ def barrier_functions(
 
             hess += (J.T * (1.0 / y**2)) @ J
 
+            if H.ndim == 2:
+                H = H[None, ...]
+
             if H.ndim >= 2:
                 hess -= np.tensordot(1 / y, H, axes=([0], [0]))
 

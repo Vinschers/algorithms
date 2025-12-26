@@ -60,7 +60,7 @@ def newton(
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
-    return_loss: bool = True,
+    return_loss: bool = False,
     backend: Optional[str] = None,
 ):
     """
