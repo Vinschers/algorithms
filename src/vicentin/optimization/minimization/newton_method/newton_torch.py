@@ -31,7 +31,7 @@ def backtrack_line_search(
     return t
 
 
-def newton(
+def _newton_torch(
     f: Callable,
     x0: torch.Tensor,
     max_iter: int = 100,
@@ -41,7 +41,7 @@ def newton(
     beta: float = 0.5,
     return_loss: bool = False,
 ):
-    x = x0.clone().detach().to(torch.float32)
+    x = x0.clone().detach().to(torch.float64)
     decrement_squared = torch.inf
     i = 0
     loss = []
@@ -70,8 +70,7 @@ def newton(
 
         decrement_squared = torch.vdot(delta_nt, -gradient)
 
-        with torch.no_grad():
-            t = backtrack_line_search(f, y, gradient, x, delta_nt, alpha, beta)
+        t = backtrack_line_search(f, y, gradient, x, delta_nt, alpha, beta)
 
         x = x + t * delta_nt
         y_new = f(x)
@@ -90,3 +89,19 @@ def newton(
         return x, loss
 
     return x
+
+
+def newton(
+    f: Callable,
+    x0: torch.Tensor,
+    max_iter: int = 100,
+    tol: float = 1e-5,
+    epsilon: float = 1e-4,
+    alpha: float = 0.25,
+    beta: float = 0.5,
+    return_loss: bool = False,
+):
+    with torch.no_grad():
+        return _newton_torch(
+            f, x0, max_iter, tol, epsilon, alpha, beta, return_loss
+        )
