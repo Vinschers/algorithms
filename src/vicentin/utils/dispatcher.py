@@ -30,8 +30,7 @@ class Dispatcher:
         if backend is not None and backend.lower() in SUPPORTED_BACKENDS.keys():
             self.backend = SUPPORTED_BACKENDS[backend.lower()]
         else:
-            type_str = str(type(arg))
-            self.backend = type_str.split(".")[0]
+            self.backend = SUPPORTED_BACKENDS[arg.__class__.__module__.lower()]
 
     def _cast_value(self, value: Any, target_backend: str) -> Any:
         if value is None:
