@@ -17,11 +17,11 @@ def line_search_step(
     f_x = f(x)
 
     while True:
-        lipschitz = f(next_x) <= f_x + torch.dot(
-            grad_x, next_x - x
-        ) + torch.sum((next_x - x) ** 2) / (2 * gamma)
+        armijo = f(next_x) <= f_x + torch.dot(grad_x, next_x - x) + torch.sum(
+            (next_x - x) ** 2
+        ) / (2 * gamma)
 
-        if lipschitz or gamma < 1e-12:
+        if armijo or gamma < 1e-12:
             break
 
         gamma /= 2
