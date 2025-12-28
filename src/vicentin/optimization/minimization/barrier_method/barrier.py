@@ -29,6 +29,7 @@ def barrier_method(
     epsilon: float = 1e-4,
     mu: float = 6,
     linear_solver: Optional[Callable] = None,
+    return_dual: bool = False,
     return_loss: bool = False,
     backend: Optional[str] = None,
 ):
@@ -127,6 +128,8 @@ def barrier_method(
         - `delta_w` (Array/Tensor): Dual update direction.
         - `decrement_squared` (float/0-dim Tensor): The value $\\Delta x^T H \\Delta x$.
           Returning this allows the solver to avoid instantiating the full Hessian $H$.
+    return_dual : bool, optional (default=False)
+        Whether to return the dual solution of the problem.
     return_loss : bool, optional (default=False)
         Whether to return the sequence of objective values at the end of each
         centering step.
@@ -138,6 +141,9 @@ def barrier_method(
     --------
     x : Any
         The optimal solution found.
+    (lambdas, mu) : Tuple[Any], optional
+        The dual solution. `lambdas` represent the inequality multipliers and
+        `mu` is the equality multiplier.
     loss : List[float], optional
         The history of objective function values $f_0(x)$. Only returned if
         `return_loss` is True.
@@ -147,5 +153,14 @@ def barrier_method(
     x0 = dispatcher.cast_values(x0)
 
     return dispatcher(
-        F, G, x0, equality, max_iter, epsilon, mu, linear_solver, return_loss
+        F,
+        G,
+        x0,
+        equality,
+        max_iter,
+        epsilon,
+        mu,
+        linear_solver,
+        return_dual,
+        return_loss,
     )

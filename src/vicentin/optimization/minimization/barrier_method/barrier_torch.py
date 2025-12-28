@@ -66,6 +66,7 @@ def barrier_method(
     epsilon: float = 1e-4,
     mu: float = 6,
     linear_solver: Optional[Callable] = None,
+    return_dual: bool = False,
     return_loss: bool = False,
 ):
     x = x0.clone().detach()
@@ -79,7 +80,9 @@ def barrier_method(
     while True:
         F = lambda z: t * f(z) + phi(z)
 
-        x = newton_method(F, x, equality, linear_solver=linear_solver)
+        x, w = newton_method(
+            F, x, equality, linear_solver=linear_solver, return_dual=True
+        )
         loss.append(f(x).item())
 
         duality_gap = m / t
@@ -92,4 +95,26 @@ def barrier_method(
         if i >= max_iter:
             break
 
-    return (x, loss) if return_loss else x
+    lambdas = []
+    for f_i in inequalities:
+        if isinstance(f_i, (list, tuple)):
+            f_i = f_i[0]
+
+        lambda_ = -1 / (t * f_i(x))
+        lambdas.append(lambda_)
+    lambdas = torch.tensor(lambdas, dtype=x.dtype, device=x.device)
+
+    mu = w / t
+
+    output = [x]
+
+    if return_dual:
+        output.append((lambdas, mu))
+
+    if return_loss:
+        output.append(loss)
+
+    if len(output) == 1:
+        return output[0]
+
+    return output

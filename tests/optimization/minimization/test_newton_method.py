@@ -175,24 +175,21 @@ def test_custom_linear_solver(backend):
 
     solver_called = False
 
-    def mock_solver(hess_f, grad, x, w, A, b):
+    def mock_solver(hess_f, grad_f, x, w, A, b):
         nonlocal solver_called
         solver_called = True
 
         # Manually solve the KKT system for this specific unconstrained case
         # System: H * dx = -g
         if backend == "numpy":
+            grad = grad_f(x)
             H_val = hess_f(x)
             dx = np.linalg.solve(H_val, -grad)
             decrement = -np.dot(dx, grad)  # Simplification for test
             return dx, None, decrement
         else:
-            # For Torch, hess_f might be a functional or tensor depending on implementation
-            # We assume for this test we can compute it
-            if callable(hess_f):
-                H_val = hess_f(x)
-            else:
-                H_val = hess_f
+            grad = grad_f(x)
+            H_val = hess_f(x)
 
             dx = torch.linalg.solve(H_val, -grad)
             decrement = torch.dot(-dx, grad)

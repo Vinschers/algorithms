@@ -125,11 +125,11 @@ def newton(
         KKT matrix construction. Use this to exploit problem structure (e.g., in SDP).
 
         **Signature:**
-        `solver(hess_f, grad, x, w, A, b) -> (delta_x, delta_w, decrement_squared)`
+        `solver(hess_f, grad_f, x, w, A, b) -> (delta_x, delta_w, decrement_squared)`
 
         **Inputs:**
         - `hess_f` (Callable): Function to compute Hessian (or Hessian-vector products).
-        - `grad` (Array/Tensor): Flattened gradient vector $\\nabla f(x)$.
+        - `grad_f` (Callable): Function to compute gradient vector $\\nabla f(x)$.
         - `x` (Array/Tensor): Current primal point (original shape).
         - `w` (Array/Tensor): Current dual variable.
         - `A`, `b`: Constraint parameters.

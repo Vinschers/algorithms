@@ -66,13 +66,12 @@ def newton_step(
     m = A.shape[0]
     n = x.numel()
 
-    gradient = grad_f(x).view(-1)
-
     if linear_solver is not None:
         delta_x, delta_w, decrement_squared = linear_solver(
-            hess_f, gradient, x, w, A, b
+            hess_f, grad_f, x, w, A, b
         )
     else:
+        gradient = grad_f(x).view(-1)
         H = hess_f(x).view(n, n)
 
         kkt_matrix = torch.cat(

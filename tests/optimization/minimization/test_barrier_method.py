@@ -222,3 +222,43 @@ def test_return_loss_history(backend):
     # Loss should generally decrease (though barrier steps make this complex,
     # the objective f0(x) should trend to optimum)
     assert history[-1] < history[0]
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_barrier_dual_recovery(backend):
+    """
+    Min x^2 s.t. x >= 1.
+    Theoretical Primal: x=1
+    Theoretical Dual (lambda): 2.0
+    """
+    if backend == "numpy":
+        F = (
+            lambda x: x[0] ** 2,
+            lambda x: np.array([2 * x[0]]),
+            lambda x: np.array([[2.0]]),
+        )
+        G = [
+            (
+                lambda x: 1.0 - x[0],
+                lambda x: np.array([-1.0]),
+                lambda x: np.array([[0.0]]),
+            )
+        ]
+        x0 = np.array([2.0])
+    else:
+        F = lambda x: x[0] ** 2
+        G = [lambda x: 1.0 - x[0]]
+        x0 = torch.tensor([2.0], dtype=torch.float64, requires_grad=True)
+
+    # Run with dual return enabled
+    x_star, (lambdas, mu) = barrier_method(
+        F, G, x0, epsilon=1e-5, return_dual=True, backend=backend
+    )
+
+    # Check Primal
+    ProblemFactory.assert_close(x_star, [1.0], backend, atol=1e-3)
+
+    # Check Dual (Lambda)
+    # The lambda list corresponds to constraints in G
+    lambda_val = lambdas[0]
+    ProblemFactory.assert_close(lambda_val, [2.0], backend, atol=1e-2)

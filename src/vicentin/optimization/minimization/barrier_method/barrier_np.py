@@ -103,6 +103,7 @@ def barrier_method(
     epsilon: float = 1e-4,
     mu: float = 6,
     linear_solver: Optional[Callable] = None,
+    return_dual: bool = False,
     return_loss: bool = False,
 ):
     f, grad_f, hess_f = F
@@ -121,11 +122,12 @@ def barrier_method(
         grad_F_phi = lambda z: t * grad_f(z) + grad_phi(z)
         hess_F_phi = lambda z: t * hess_f(z) + hess_phi(z)
 
-        x = newton_method(
+        x, w = newton_method(
             (F_phi, grad_F_phi, hess_F_phi),
             x,
             equality,
             linear_solver=linear_solver,
+            return_dual=True,
         )
 
         loss.append(float(f(x)))
@@ -140,4 +142,23 @@ def barrier_method(
         if i >= max_iter:
             break
 
-    return (x, loss) if return_loss else x
+    lambdas = []
+    for f_i in inequalities:
+        lambda_ = -1 / (t * f_i[0](x))
+        lambdas.append(lambda_)
+    lambdas = np.array(lambdas)
+
+    mu = w / t
+
+    output = [x]
+
+    if return_dual:
+        output.append((lambdas, mu))
+
+    if return_loss:
+        output.append(loss)
+
+    if len(output) == 1:
+        return output[0]
+
+    return output

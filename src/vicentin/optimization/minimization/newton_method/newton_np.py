@@ -52,14 +52,14 @@ def newton_step(
     linear_solver: Optional[Callable] = None,
 ):
     n = x.size
-    gradient = grad_f(x).ravel()
 
     if linear_solver is not None:
         delta_x, delta_w, decrement_squared = linear_solver(
-            hess_f, gradient, x, w, A, b
+            hess_f, grad_f, x, w, A, b
         )
     else:
         m = A.shape[0]
+        gradient = grad_f(x).ravel()
         H = hess_f(x).reshape(n, n)
 
         kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
