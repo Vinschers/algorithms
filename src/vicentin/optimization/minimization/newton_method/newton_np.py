@@ -49,31 +49,37 @@ def newton_step(
     b: np.ndarray,
     alpha: float = 0.25,
     beta: float = 0.5,
+    linear_solver: Optional[Callable] = None,
 ):
     n = x.size
-    m = A.shape[0]
-
     gradient = grad_f(x).ravel()
-    H = hess_f(x).reshape(n, n)
 
-    kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
-    kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
+    if linear_solver is not None:
+        delta_x, delta_w, decrement_squared = linear_solver(
+            hess_f, gradient, x, w, A, b
+        )
+    else:
+        m = A.shape[0]
+        H = hess_f(x).reshape(n, n)
 
-    delta_x = np.zeros_like(x)
-    delta_w = np.zeros_like(w)
+        kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
+        kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
 
-    try:
-        delta_x_w = solve(kkt_matrix, kkt_rhs)
-        delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
-    except RuntimeError:
-        print("Could not solve for \\Delta_x.")
+        delta_x = np.zeros_like(x)
+        delta_w = np.zeros_like(w)
+
+        try:
+            delta_x_w = solve(kkt_matrix, kkt_rhs)
+            delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
+        except RuntimeError:
+            print("Could not solve for \\Delta_x.")
+
+        decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
 
     x = x + t * delta_x
     w = w + t * delta_w
-
-    decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
 
     return x, w, decrement_squared
 
@@ -89,6 +95,7 @@ def newton(
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    linear_solver: Optional[Callable] = None,
     return_dual: bool = False,
     return_loss: bool = False,
 ):
@@ -116,7 +123,7 @@ def newton(
             raise ValueError(f"Reached infeasible point: {x}.")
 
         x, w, decrement_squared = newton_step(
-            f, grad_f, hess_f, r, x, w, A, b, alpha, beta
+            f, grad_f, hess_f, r, x, w, A, b, alpha, beta, linear_solver
         )
 
         y_new = f(x)

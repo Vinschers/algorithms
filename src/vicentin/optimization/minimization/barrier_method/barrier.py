@@ -28,6 +28,7 @@ def barrier_method(
     max_iter: int = 100,
     epsilon: float = 1e-4,
     mu: float = 6,
+    linear_solver: Optional[Callable] = None,
     return_loss: bool = False,
     backend: Optional[str] = None,
 ):
@@ -107,6 +108,25 @@ def barrier_method(
     mu : float, optional (default=6)
         Factor by which $t$ is increased at each outer step ($t := \\mu t$).
         Typical values are between 2 and 100.
+    linear_solver : Callable, optional (default=None)
+        A custom strategy to solve the Newton system, bypassing the default dense
+        KKT matrix construction. Use this to exploit problem structure (e.g., in SDP).
+
+        **Signature:**
+        `solver(hess_f, grad, x, w, A, b) -> (delta_x, delta_w, decrement_squared)`
+
+        **Inputs:**
+        - `hess_f` (Callable): Function to compute Hessian (or Hessian-vector products).
+        - `grad` (Array/Tensor): Flattened gradient vector $\\nabla f(x)$.
+        - `x` (Array/Tensor): Current primal point (original shape).
+        - `w` (Array/Tensor): Current dual variable.
+        - `A`, `b`: Constraint parameters.
+
+        **Returns:**
+        - `delta_x` (Array/Tensor): Primal update direction (same shape as `x`).
+        - `delta_w` (Array/Tensor): Dual update direction.
+        - `decrement_squared` (float/0-dim Tensor): The value $\\Delta x^T H \\Delta x$.
+          Returning this allows the solver to avoid instantiating the full Hessian $H$.
     return_loss : bool, optional (default=False)
         Whether to return the sequence of objective values at the end of each
         centering step.
@@ -126,4 +146,6 @@ def barrier_method(
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 
-    return dispatcher(F, G, x0, equality, max_iter, epsilon, mu, return_loss)
+    return dispatcher(
+        F, G, x0, equality, max_iter, epsilon, mu, linear_solver, return_loss
+    )

@@ -102,6 +102,7 @@ def barrier_method(
     max_iter: int = 100,
     epsilon: float = 1e-4,
     mu: float = 6,
+    linear_solver: Optional[Callable] = None,
     return_loss: bool = False,
 ):
     f, grad_f, hess_f = F
@@ -120,7 +121,12 @@ def barrier_method(
         grad_F_phi = lambda z: t * grad_f(z) + grad_phi(z)
         hess_F_phi = lambda z: t * hess_f(z) + hess_phi(z)
 
-        x = newton_method((F_phi, grad_F_phi, hess_F_phi), x, equality)
+        x = newton_method(
+            (F_phi, grad_F_phi, hess_F_phi),
+            x,
+            equality,
+            linear_solver=linear_solver,
+        )
 
         loss.append(float(f(x)))
 

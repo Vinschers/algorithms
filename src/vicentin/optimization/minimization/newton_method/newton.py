@@ -61,6 +61,7 @@ def newton(
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    linear_solver: Optional[Callable] = None,
     return_dual: bool = False,
     return_loss: bool = False,
     backend: Optional[str] = None,
@@ -69,12 +70,16 @@ def newton(
     Minimizes a convex scalar function using Newton's Method with Backtracking Line Search.
 
     The method uses a second-order Taylor approximation of the function $f$ at the
-    current point $x$. It computes the Newton step by solving the system:
-    $\\nabla^2 f(x) \\Delta x_{nt} = -\\nabla f(x)$
+    current point $x$. It computes the Newton step by solving the KKT system:
+    $$
+    \\begin{bmatrix} \\nabla^2 f(x) & A^\\top \\\\ A & 0 \\end{bmatrix}
+    \\begin{bmatrix} \\Delta x \\\\ \\Delta w \\end{bmatrix} =
+    \\begin{bmatrix} -\\nabla f(x) - A^\\top w \\\\ b - Ax \\end{bmatrix}
+    $$
 
     The stopping criterion is based on the Newton decrement $\\lambda(x)$, which
     measures the proximity to the optimum in the quadratic norm:
-    $\\frac{1}{2} \\lambda(x)^2 = \\frac{1}{2} \\Delta x_{nt}^\\top \\nabla^2 f(x) \\Delta x_{nt}$
+    $$ \\frac{1}{2} \\lambda(x)^2 = \\frac{1}{2} \\Delta x^\\top \\nabla^2 f(x) \\Delta x $$
 
     The iteration stops when $\\frac{1}{2} \\lambda(x)^2 \\leq \\epsilon$, the absolute
     change in function value falls below `tol`, or `max_iter` is reached.
@@ -83,17 +88,16 @@ def newton(
     -----------------------
     - The objective function $f$ must be defined such that it evaluates to `inf`
       (or raises a domain error) for any $x$ outside its feasible domain.
-    - Backtracking line search ensures the Armijo condition (sufficient decrease):
-      $f(x + t \\Delta x_{nt}) \\leq f(x) + \\alpha t \\nabla f(x)^\\top \\Delta x_{nt}$
-    - It also ensures that the step size $t$ is small enough so that $x + t \\Delta x_{nt}$
-      stays within the domain of $f$.
+    - Backtracking line search ensures the Armijo condition (sufficient decrease).
 
     Complexity Analysis:
     -------------------
-    - Time Complexity: $O(I \\cdot (H + N^3 + L \\cdot F))$ per iteration, where $I$
-      is iterations, $H$ is Hessian computation, $N^3$ is solving the linear
-      system, $L$ is line search steps, and $F$ is function evaluation.
-    - Space Complexity: $O(N^2)$ to store the Hessian matrix.
+    - **Default Solver:** Time Complexity is dominated by the linear system solve.
+      If $N$ is the number of variables, solving the dense system is $O(N^3)$.
+      *Note:* For matrix problems (like SDP) where $N=n^2$, this becomes $O(n^6)$.
+    - **Custom Linear Solver:** Time complexity depends entirely on the implementation
+      of `linear_solver`. Structure-exploiting solvers can reduce this significantly
+      (e.g., to $O(n^3)$ for SDPs).
 
     Parameters:
     -----------
@@ -103,20 +107,38 @@ def newton(
         - For Torch/JAX: A single callable `f` (derivatives computed via autodiff).
     x0 : Any
         Initial guess for the minimum. Must be within the domain of $f$.
-        The type determines the backend (NumPy vs. PyTorch/JAX).
     equality : tuple, optional (default=None)
         If solving an equality constraint problem of the form A x = b, `equality`
         should be the tuple (A, b).
     max_iter : int, optional (default=100)
         Maximum number of iterations allowed.
     tol : float, optional (default=1e-5)
-        Convergence tolerance for the absolute change in function value $|f(x^+) - f(x)|$.
+        Convergence tolerance for the absolute change in function value.
     epsilon : float, optional (default=1e-4)
         Convergence tolerance for the Newton decrement $\\lambda^2 / 2$.
     alpha : float, optional (default=0.25)
         Backtracking parameter (fraction of decrease predicted by gradient).
     beta : float, optional (default=0.5)
         Backtracking step-size reduction factor ($t := \\beta t$).
+    linear_solver : Callable, optional (default=None)
+        A custom strategy to solve the Newton system, bypassing the default dense
+        KKT matrix construction. Use this to exploit problem structure (e.g., in SDP).
+
+        **Signature:**
+        `solver(hess_f, grad, x, w, A, b) -> (delta_x, delta_w, decrement_squared)`
+
+        **Inputs:**
+        - `hess_f` (Callable): Function to compute Hessian (or Hessian-vector products).
+        - `grad` (Array/Tensor): Flattened gradient vector $\\nabla f(x)$.
+        - `x` (Array/Tensor): Current primal point (original shape).
+        - `w` (Array/Tensor): Current dual variable.
+        - `A`, `b`: Constraint parameters.
+
+        **Returns:**
+        - `delta_x` (Array/Tensor): Primal update direction (same shape as `x`).
+        - `delta_w` (Array/Tensor): Dual update direction.
+        - `decrement_squared` (float/0-dim Tensor): The value $\\Delta x^T H \\Delta x$.
+          Returning this allows the solver to avoid instantiating the full Hessian $H$.
     return_dual : bool, optional (default=False)
         Whether to return the dual solution.
     return_loss : bool, optional (default=False)
@@ -126,8 +148,6 @@ def newton(
     --------
     x : Any
         The approximate local minimum.
-    loss : List[float], optional
-        Sequence of function values. Only returned if `return_loss` is True.
     """
 
     dispatcher.detect_backend(x0, backend)
@@ -142,6 +162,7 @@ def newton(
         epsilon,
         alpha,
         beta,
+        linear_solver,
         return_dual,
         return_loss,
     )

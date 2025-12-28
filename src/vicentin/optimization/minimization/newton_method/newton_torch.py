@@ -61,48 +61,57 @@ def newton_step(
     b: torch.Tensor,
     alpha: float = 0.25,
     beta: float = 0.5,
+    linear_solver: Optional[Callable] = None,
 ):
     m = A.shape[0]
     n = x.numel()
 
     gradient = grad_f(x).view(-1)
-    H = hess_f(x).view(n, n)
 
-    kkt_matrix = torch.cat(
-        (
-            torch.cat((H, A.T), dim=1),
-            torch.cat((A, torch.zeros((m, m))), dim=1),
-        ),
-        dim=0,
-    )
-    kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
+    if linear_solver is not None:
+        delta_x, delta_w, decrement_squared = linear_solver(
+            hess_f, gradient, x, w, A, b
+        )
+    else:
+        H = hess_f(x).view(n, n)
 
-    delta_x = torch.zeros_like(x)
-    delta_w = torch.zeros_like(w)
-
-    try:
-        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
-    except RuntimeError:
-        H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
         kkt_matrix = torch.cat(
             (
                 torch.cat((H, A.T), dim=1),
-                torch.cat((A, torch.zeros((m, m))), dim=1),
+                torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
             ),
             dim=0,
         )
+        kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
+
+        delta_x = torch.zeros_like(x)
+        delta_w = torch.zeros_like(w)
 
         try:
             delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
         except RuntimeError:
-            print("Could not solve for \\Delta_x.")
+            H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
+            kkt_matrix = torch.cat(
+                (
+                    torch.cat((H, A.T), dim=1),
+                    torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
+                ),
+                dim=0,
+            )
+
+            try:
+                delta_x, delta_w = solve_kkt_system(
+                    kkt_matrix, kkt_rhs, n, x.shape
+                )
+            except RuntimeError:
+                print("Could not solve for \\Delta_x.")
+
+        decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
 
     x = x + t * delta_x
     w = w + t * delta_w
-
-    decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
 
     return x, w, decrement_squared
 
@@ -116,6 +125,7 @@ def newton(
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    linear_solver: Optional[Callable] = None,
     return_dual: bool = False,
     return_loss: bool = False,
 ):
@@ -163,7 +173,7 @@ def newton(
 
         with torch.no_grad():
             x, w, decrement_squared = newton_step(
-                f, grad_f, hess_f, r, x, w, A, b, alpha, beta
+                f, grad_f, hess_f, r, x, w, A, b, alpha, beta, linear_solver
             )
 
             y_new = f(x).item()

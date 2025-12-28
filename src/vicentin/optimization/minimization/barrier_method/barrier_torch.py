@@ -65,6 +65,7 @@ def barrier_method(
     max_iter: int = 100,
     epsilon: float = 1e-4,
     mu: float = 6,
+    linear_solver: Optional[Callable] = None,
     return_loss: bool = False,
 ):
     x = x0.clone().detach()
@@ -78,7 +79,7 @@ def barrier_method(
     while True:
         F = lambda z: t * f(z) + phi(z)
 
-        x = newton_method(F, x, equality)
+        x = newton_method(F, x, equality, linear_solver=linear_solver)
         loss.append(f(x).item())
 
         duality_gap = m / t
