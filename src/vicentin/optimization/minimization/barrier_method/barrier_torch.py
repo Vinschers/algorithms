@@ -50,7 +50,7 @@ def barrier_phi(I: list, x0: torch.Tensor):
                 if torch.any(torch.isnan(f_x)) or torch.any(torch.isinf(f_x)):
                     return inf
 
-                y -= f_x.sum()
+                y += f_x.sum()
 
         return y
 
@@ -63,7 +63,6 @@ def barrier_method(
     x0: torch.Tensor,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-8,
     epsilon: float = 1e-4,
     mu: float = 6,
     return_loss: bool = False,
@@ -79,13 +78,8 @@ def barrier_method(
     while True:
         F = lambda z: t * f(z) + phi(z)
 
-        y = f(x).item()
         x = newton_method(F, x, equality)
-        y_new = f(x).item()
-
-        loss.append(y_new)
-        if abs(y_new - y) < tol:
-            break
+        loss.append(f(x).item())
 
         duality_gap = m / t
         if duality_gap < epsilon:

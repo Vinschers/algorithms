@@ -43,7 +43,7 @@ def barrier_functions(I: Sequence[Sequence], x0: np.ndarray):
                 if np.any(np.isnan(f_x)) or np.any(np.isinf(f_x)):
                     return np.inf
 
-                y -= f_x.sum()
+                y += f_x.sum()
 
         return y
 
@@ -60,7 +60,7 @@ def barrier_functions(I: Sequence[Sequence], x0: np.ndarray):
                 grad -= J.T @ (1 / y)
             elif ineq_type[i] == LOG_INEQUALITY:
                 g = np.atleast_1d(grad_f(x))
-                grad -= np.sum(g, axis=0) if g.ndim > x.ndim else g
+                grad += np.sum(g, axis=0) if g.ndim > x.ndim else g
 
         return grad
 
@@ -85,9 +85,9 @@ def barrier_functions(I: Sequence[Sequence], x0: np.ndarray):
                     hess -= np.tensordot(1 / y, H, axes=([0], [0]))
             elif ineq_type[i] == LOG_INEQUALITY:
                 if H.ndim > 2:
-                    hess -= np.sum(H, axis=0)
+                    hess += np.sum(H, axis=0)
                 else:
-                    hess -= H
+                    hess += H
 
         return hess
 
@@ -100,7 +100,6 @@ def barrier_method(
     x0: np.ndarray,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-8,
     epsilon: float = 1e-4,
     mu: float = 6,
     return_loss: bool = False,
@@ -121,16 +120,9 @@ def barrier_method(
         grad_F_phi = lambda z: t * grad_f(z) + grad_phi(z)
         hess_F_phi = lambda z: t * hess_f(z) + hess_phi(z)
 
-        y = f(x)
-        F_phi(x)
-        grad_F_phi(x)
-        hess_F_phi(x)
         x = newton_method((F_phi, grad_F_phi, hess_F_phi), x, equality)
-        y_new = f(x)
 
-        loss.append(y_new)
-        if np.abs(y_new - y) < tol:
-            break
+        loss.append(float(f(x)))
 
         duality_gap = m / t
         if duality_gap < epsilon:

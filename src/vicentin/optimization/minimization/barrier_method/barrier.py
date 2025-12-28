@@ -6,14 +6,14 @@ dispatcher = Dispatcher()
 
 
 try:
-    from barrier_np import barrier_method as barrier_np
+    from .barrier_np import barrier_method as barrier_np
 
     dispatcher.register("numpy", barrier_np)
 except ModuleNotFoundError:
     pass
 
 try:
-    from barrier_torch import barrier_method as barrier_torch
+    from .barrier_torch import barrier_method as barrier_torch
 
     dispatcher.register("torch", barrier_torch)
 except ModuleNotFoundError:
@@ -26,7 +26,6 @@ def barrier_method(
     x0: Any,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-8,
     epsilon: float = 1e-4,
     mu: float = 6,
     return_loss: bool = False,
@@ -102,8 +101,6 @@ def barrier_method(
         Linear equality constraints $(A, b)$ such that $Ax = b$.
     max_iter : int, optional (default=100)
         Maximum number of outer loop iterations (updates to parameter $t$).
-    tol : float, optional (default=1e-8)
-        Convergence tolerance for the inner Newton solver (centering step).
     epsilon : float, optional (default=1e-4)
         Convergence tolerance for the duality gap ($m/t < \\epsilon$) to stop
         the outer loop.
@@ -129,6 +126,4 @@ def barrier_method(
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 
-    return dispatcher(
-        F, G, x0, equality, max_iter, tol, epsilon, mu, return_loss
-    )
+    return dispatcher(F, G, x0, equality, max_iter, epsilon, mu, return_loss)
