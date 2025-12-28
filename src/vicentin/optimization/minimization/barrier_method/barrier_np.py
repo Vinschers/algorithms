@@ -3,28 +3,64 @@ import numpy as np
 
 from vicentin.optimization.minimization import newton_method
 
+STANDARD_INEQUALITY = 0
+LOG_INEQUALITY = 1
 
-def barrier_functions(
-    inequalities: list[Callable],
-    grad_inequalities: list[Callable],
-    hess_inequalities: list[Callable],
-):
+
+def barrier_functions(I: Sequence[Sequence], x0: np.ndarray):
+    m = len(I)
+    ineq_type = [STANDARD_INEQUALITY] * m
+    inequalities = []
+
+    for i, ineq in enumerate(I):
+        if len(ineq) == 4:
+            ineq_type[i] = ineq[3]
+            inequalities.append(ineq[:3])
+        else:
+            inequalities.append(ineq)
+
+    for i in range(m):
+        f_i = inequalities[i][0](x0)
+        if ineq_type[i] == STANDARD_INEQUALITY:
+            if (f_i.ndim == 0 and f_i >= 0) or (
+                f_i.ndim > 0 and np.any(f_i >= 0)
+            ):
+                raise ValueError("Initial point is not feasible.")
+
     def phi(x):
-        y_arr = np.concatenate([np.atleast_1d(f(x)) for f in inequalities])
+        y = 0
 
-        if np.any(y_arr >= 0):
-            return np.inf
+        for i in range(m):
+            f, _, _ = inequalities[i]
+            f_x = f(x)
 
-        return -np.log(-y_arr).sum()
+            if ineq_type[i] == STANDARD_INEQUALITY:
+                if np.any(f_x >= 0):
+                    return np.inf
+
+                y -= np.log(-f_x).sum()
+            elif ineq_type[i] == LOG_INEQUALITY:
+                if np.any(np.isnan(f_x)) or np.any(np.isinf(f_x)):
+                    return np.inf
+
+                y -= f_x.sum()
+
+        return y
 
     def grad_phi(x):
         grad = np.zeros_like(x)
 
-        for f, grad_f in zip(inequalities, grad_inequalities):
-            y = np.atleast_1d(f(x))
-            J = np.atleast_2d(grad_f(x))
+        for i in range(m):
+            f, grad_f, _ = inequalities[i]
 
-            grad -= J.T @ (1 / y)
+            if ineq_type[i] == STANDARD_INEQUALITY:
+                y = np.atleast_1d(f(x))
+                J = np.atleast_2d(grad_f(x))
+
+                grad -= J.T @ (1 / y)
+            elif ineq_type[i] == LOG_INEQUALITY:
+                g = np.atleast_1d(grad_f(x))
+                grad -= np.sum(g, axis=0) if g.ndim > x.ndim else g
 
         return grad
 
@@ -32,20 +68,26 @@ def barrier_functions(
         n = x.shape[0]
         hess = np.zeros((n, n))
 
-        for f, grad_f, hess_f in zip(
-            inequalities, grad_inequalities, hess_inequalities
-        ):
-            y = np.atleast_1d(f(x))
-            J = np.atleast_2d(grad_f(x))
+        for i in range(m):
+            f, grad_f, hess_f = inequalities[i]
             H = hess_f(x)
 
-            hess += (J.T * (1.0 / y**2)) @ J
+            if ineq_type[i] == STANDARD_INEQUALITY:
+                y = np.atleast_1d(f(x))
+                J = np.atleast_2d(grad_f(x))
 
-            if H.ndim == 2:
-                H = H[None, ...]
+                hess += (J.T * (1.0 / y**2)) @ J
 
-            if H.ndim >= 2:
-                hess -= np.tensordot(1 / y, H, axes=([0], [0]))
+                if H.ndim == 2:
+                    H = H[None, ...]
+
+                if H.ndim >= 2:
+                    hess -= np.tensordot(1 / y, H, axes=([0], [0]))
+            elif ineq_type[i] == LOG_INEQUALITY:
+                if H.ndim > 2:
+                    hess -= np.sum(H, axis=0)
+                else:
+                    hess -= H
 
         return hess
 
@@ -54,7 +96,7 @@ def barrier_functions(
 
 def barrier_method(
     F: Sequence[Callable],
-    G: Sequence[list[Callable]],
+    G: Sequence[Sequence[Callable]],
     x0: np.ndarray,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
@@ -64,11 +106,9 @@ def barrier_method(
     return_loss: bool = False,
 ):
     f, grad_f, hess_f = F
-    inequalities, grad_inequalities, hess_inequalities = G
+    inequalities = G
 
-    phi, grad_phi, hess_phi = barrier_functions(
-        inequalities, grad_inequalities, hess_inequalities
-    )
+    phi, grad_phi, hess_phi = barrier_functions(inequalities, x0)
 
     x = x0.copy()
     t = 1
@@ -76,16 +116,15 @@ def barrier_method(
     loss = []
     i = 1
 
-    for f_i in inequalities:
-        if f_i(x) >= 0:
-            raise ValueError("Initial point is not feasible.")
-
     while True:
         F_phi = lambda z: t * f(z) + phi(z)
         grad_F_phi = lambda z: t * grad_f(z) + grad_phi(z)
         hess_F_phi = lambda z: t * hess_f(z) + hess_phi(z)
 
         y = f(x)
+        F_phi(x)
+        grad_F_phi(x)
+        hess_F_phi(x)
         x = newton_method((F_phi, grad_F_phi, hess_F_phi), x, equality)
         y_new = f(x)
 

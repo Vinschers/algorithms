@@ -22,16 +22,110 @@ except ModuleNotFoundError:
 
 def barrier_method(
     F: Sequence[Callable] | Callable,
-    G: Sequence[list[Callable]] | Sequence[Callable],
+    G: Sequence[Sequence[Callable]] | Sequence[Callable],
     x0: Any,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
     tol: float = 1e-8,
     epsilon: float = 1e-4,
     mu: float = 6,
-    return_loss: bool = True,
+    return_loss: bool = False,
     backend: Optional[str] = None,
 ):
+    """
+    Minimizes a convex function with inequality constraints using the
+    Logarithmic Barrier Method.
+
+    This method solves the problem:
+    $$
+    \\begin{aligned}
+    & \\text{minimize} && f_0(x) \\\\
+    & \\text{subject to} && f_i(x) \\leq 0, \\; i = 1, \\dots, m \\\\
+    & && Ax = b
+    \\end{aligned}
+    $$
+
+    It approximates the constrained problem by solving a sequence of
+    unconstrained "centering" problems. The objective for the centering step is:
+    $$ t f_0(x) + \\phi(x) $$
+    where $\\phi(x) = -\\sum_{i=1}^m \\log(-f_i(x))$ is the logarithmic barrier.
+
+    The parameter $t$ determines the accuracy of the approximation. The
+    algorithm starts with a small $t$, solves the centering problem using
+    Newton's Method, increases $t$ by a factor $\\mu$, and repeats until the
+    duality gap $m/t$ is less than $\\epsilon$.
+
+    Strict Feasibility:
+    -------------------
+    - The initial point `x0` must be **strictly feasible** regarding the
+      inequality constraints. That is, $f_i(x_0) < 0$ for all $i$.
+    - If $f_i(x_0) = 0$ (boundary), the log-barrier is undefined, and the method
+      will raise an error.
+
+    Complexity Analysis:
+    --------------------
+    - The number of outer iterations (centering steps) is generally logarithmic
+      in accuracy: $O(\\log(m / \\epsilon))$.
+    - The total effort is the sum of Newton steps across all centering steps.
+    - Theoretically, for self-concordant functions, the method converges in
+      $O(\\sqrt{m} \\log(m/\\epsilon))$ total Newton steps, where $m$ is the
+      number of inequality constraints.
+
+    Parameters:
+    -----------
+    F : Sequence[Callable] or Callable
+        The objective function definition.
+        - **NumPy:** A tuple `(f, grad_f, hess_f)`.
+        - **Torch/JAX:** A single callable `f` (derivatives computed via
+          autodiff).
+    G : Sequence[Sequence[Callable]] or Sequence[Callable]
+        The inequality constraints definition. A sequence where each element
+        defines a constraint $f_i$.
+
+        **Constraint Types:**
+        - `STANDARD_INEQUALITY` (0): Represents $f_i(x) \\leq 0$.
+           Barrier is $-\\log(-f_i(x))$.
+        - `LOG_INEQUALITY` (1): Represents a term that is already a barrier
+          (e.g. $-\\log x$). The term is added directly to the potential.
+
+        **Input Format:**
+        - **NumPy:** A list of tuples. Each tuple is
+          `(ineq, grad, hess, [type])`.
+          If `type` is omitted, defaults to Standard.
+        - **Torch/JAX:** A list where elements are either:
+          1. A callable `ineq` (defaults to Standard).
+          2. A tuple `(ineq, type)`.
+    x0 : Any
+        Initial strictly feasible point. Must satisfy $f_i(x_0) < 0$.
+        The type  determines the backend usage.
+    equality : tuple, optional (default=None)
+        Linear equality constraints $(A, b)$ such that $Ax = b$.
+    max_iter : int, optional (default=100)
+        Maximum number of outer loop iterations (updates to parameter $t$).
+    tol : float, optional (default=1e-8)
+        Convergence tolerance for the inner Newton solver (centering step).
+    epsilon : float, optional (default=1e-4)
+        Convergence tolerance for the duality gap ($m/t < \\epsilon$) to stop
+        the outer loop.
+    mu : float, optional (default=6)
+        Factor by which $t$ is increased at each outer step ($t := \\mu t$).
+        Typical values are between 2 and 100.
+    return_loss : bool, optional (default=False)
+        Whether to return the sequence of objective values at the end of each
+        centering step.
+    backend : str, optional (default=None)
+        Explicitly specify 'numpy', 'torch', or 'jax'. If None,
+        inferred from `x0`.
+
+    Returns:
+    --------
+    x : Any
+        The optimal solution found.
+    loss : List[float], optional
+        The history of objective function values $f_0(x)$. Only returned if
+        `return_loss` is True.
+    """
+
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 

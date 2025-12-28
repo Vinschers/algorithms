@@ -119,7 +119,7 @@ def newton(
     return_dual: bool = False,
     return_loss: bool = False,
 ):
-    x = x0.clone().detach().to(torch.float64)
+    x = x0.clone().detach()
     i = 0
     loss = []
 
