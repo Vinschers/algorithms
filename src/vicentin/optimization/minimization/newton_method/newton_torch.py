@@ -68,12 +68,6 @@ def newton_step(
     gradient = grad_f(x).view(-1)
     H = hess_f(x).view(n, n)
 
-    if isinstance(gradient, (list, tuple)):
-        gradient = gradient[0]
-
-    if isinstance(H, (list, tuple)):
-        H = H[0]
-
     kkt_matrix = torch.cat(
         (
             torch.cat((H, A.T), dim=1),
@@ -89,14 +83,28 @@ def newton_step(
     try:
         delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
     except RuntimeError:
-        print("Could not solve for \\Delta_x.")
+        H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
+        kkt_matrix = torch.cat(
+            (
+                torch.cat((H, A.T), dim=1),
+                torch.cat((A, torch.zeros((m, m))), dim=1),
+            ),
+            dim=0,
+        )
+
+        try:
+            delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
+        except RuntimeError:
+            print("Could not solve for \\Delta_x.")
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
 
     x = x + t * delta_x
     w = w + t * delta_w
 
-    return x, w
+    decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
+
+    return x, w, decrement_squared
 
 
 def newton(
@@ -154,14 +162,20 @@ def newton(
             raise ValueError(f"Reached infeasible point: {x}.")
 
         with torch.no_grad():
-            x, w = newton_step(f, grad_f, hess_f, r, x, w, A, b, alpha, beta)
+            x, w, decrement_squared = newton_step(
+                f, grad_f, hess_f, r, x, w, A, b, alpha, beta
+            )
 
             y_new = f(x).item()
             r_val = r(x, w).item()
 
         loss.append(y_new)
 
-        if r_val <= epsilon:
+        feasible = torch.isclose(A @ x.view(-1), b).all()
+
+        if (not feasible and r_val <= epsilon) or (
+            feasible and decrement_squared <= 2 * epsilon
+        ):
             break
 
         if abs(y_new - y) < tol:

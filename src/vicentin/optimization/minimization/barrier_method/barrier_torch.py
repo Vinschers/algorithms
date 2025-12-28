@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import torch
 
@@ -21,10 +21,11 @@ def barrier_method(
     f: Callable,
     inequalities: list[Callable],
     x0: torch.Tensor,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
-    mu: float = 36,
+    mu: float = 6,
     return_loss: bool = False,
 ):
     phi = barrier_phi(inequalities)
@@ -35,14 +36,19 @@ def barrier_method(
     loss = []
     i = 1
 
+    for f_i in inequalities:
+        if f_i(x) >= 0:
+            raise ValueError("Initial point is not feasible.")
+
     while True:
         F = lambda z: t * f(z) + phi(z)
 
-        x = newton_method(F, x)
-        f_x = f(x)
+        y = f(x).item()
+        x = newton_method(F, x, equality)
+        y_new = f(x).item()
 
-        loss.append(f(x))
-        if torch.abs(f_x) < tol:
+        loss.append(y_new)
+        if abs(y_new - y) < tol:
             break
 
         duality_gap = m / t

@@ -73,7 +73,9 @@ def newton_step(
     x = x + t * delta_x
     w = w + t * delta_w
 
-    return x, w
+    decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
+
+    return x, w, decrement_squared
 
 
 def newton(
@@ -113,14 +115,20 @@ def newton(
         if y == np.inf:
             raise ValueError(f"Reached infeasible point: {x}.")
 
-        x, w = newton_step(f, grad_f, hess_f, r, x, w, A, b, alpha, beta)
+        x, w, decrement_squared = newton_step(
+            f, grad_f, hess_f, r, x, w, A, b, alpha, beta
+        )
 
         y_new = f(x)
         r_val = r(x, w)
 
         loss.append(y_new)
 
-        if r_val <= epsilon:
+        feasible = np.isclose(A @ x.ravel(), b).all()
+
+        if (not feasible and r_val <= epsilon) or (
+            feasible and decrement_squared <= 2 * epsilon
+        ):
             break
 
         if np.abs(y_new - y) < tol:

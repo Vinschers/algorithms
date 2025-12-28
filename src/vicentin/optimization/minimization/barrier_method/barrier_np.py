@@ -1,4 +1,4 @@
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 import numpy as np
 
 from vicentin.optimization.minimization import newton_method
@@ -56,10 +56,11 @@ def barrier_method(
     F: Sequence[Callable],
     G: Sequence[list[Callable]],
     x0: np.ndarray,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
-    mu: float = 36,
+    mu: float = 6,
     return_loss: bool = False,
 ):
     f, grad_f, hess_f = F
@@ -75,16 +76,21 @@ def barrier_method(
     loss = []
     i = 1
 
+    for f_i in inequalities:
+        if f_i(x) >= 0:
+            raise ValueError("Initial point is not feasible.")
+
     while True:
         F_phi = lambda z: t * f(z) + phi(z)
         grad_F_phi = lambda z: t * grad_f(z) + grad_phi(z)
         hess_F_phi = lambda z: t * hess_f(z) + hess_phi(z)
 
-        x = newton_method((F_phi, grad_F_phi, hess_F_phi), x)
-        f_x = f(x)
+        y = f(x)
+        x = newton_method((F_phi, grad_F_phi, hess_F_phi), x, equality)
+        y_new = f(x)
 
-        loss.append(f_x)
-        if np.abs(f_x) < tol:
+        loss.append(y_new)
+        if np.abs(y_new - y) < tol:
             break
 
         duality_gap = m / t

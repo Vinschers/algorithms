@@ -24,14 +24,17 @@ def barrier_method(
     F: Sequence[Callable] | Callable,
     G: Sequence[list[Callable]] | Sequence[Callable],
     x0: Any,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
-    mu: float = 2,
+    mu: float = 6,
     return_loss: bool = True,
     backend: Optional[str] = None,
 ):
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 
-    return dispatcher(F, G, x0, max_iter, tol, epsilon, mu, return_loss)
+    return dispatcher(
+        F, G, x0, equality, max_iter, tol, epsilon, mu, return_loss
+    )
