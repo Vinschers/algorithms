@@ -35,7 +35,7 @@ def backtrack_line_search(
         t *= beta
 
         if t < 1e-12:
-            break
+            return 0
 
     return t
 
