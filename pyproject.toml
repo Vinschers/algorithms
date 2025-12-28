@@ -26,3 +26,13 @@ exclude = [ "tests", "docs",]
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --cov=vicentin"
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    "src"
+]

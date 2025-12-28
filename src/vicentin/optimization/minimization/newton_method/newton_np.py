@@ -70,10 +70,13 @@ def newton_step(
 
         try:
             delta_x_w = solve(kkt_matrix, kkt_rhs)
-            delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
         except RuntimeError:
-            print("Could not solve for \\Delta_x.")
+            H = H + 1e-9 * np.eye(n)
+            kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
 
+            delta_x_w = solve(kkt_matrix, kkt_rhs)
+
+        delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
         decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)

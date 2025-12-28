@@ -99,12 +99,7 @@ def newton_step(
                 dim=0,
             )
 
-            try:
-                delta_x, delta_w = solve_kkt_system(
-                    kkt_matrix, kkt_rhs, n, x.shape
-                )
-            except RuntimeError:
-                print("Could not solve for \\Delta_x.")
+            delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
 
         decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
 
