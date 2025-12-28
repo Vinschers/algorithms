@@ -1,32 +1,79 @@
-from typing import Callable
+from typing import Callable, Optional
+
 import numpy as np
+from numpy.linalg import norm, solve
 
 
 def backtrack_line_search(
     f: Callable,
-    y: float,
-    grad_x: np.ndarray,
+    r: Callable,
     x: np.ndarray,
     delta_x: np.ndarray,
+    w: np.ndarray,
+    delta_w: np.ndarray,
     alpha: float,
     beta: float,
 ):
+    y = r(x, w)
     t = 1
-    slope = alpha * np.dot(grad_x, delta_x)
 
     while True:
-        try:
-            armijo = f(x + t * delta_x) <= y + t * slope
+        f_x = f(x + t * delta_x)
+        infeasible = np.isnan(f_x) or np.isinf(f_x)
+        feasible = not infeasible
 
-            if armijo or t < 1e-12:
+        if feasible:
+            r_val = r(x + t * delta_x, w + t * delta_w)
+
+            lipschitz = r_val <= (1 - alpha * t) * y
+
+            if lipschitz:
                 break
-
-        except (ValueError, OverflowError):
-            pass
 
         t *= beta
 
+        if t < 1e-12:
+            break
+
     return t
+
+
+def newton_step(
+    f: Callable,
+    grad_f: Callable,
+    hess_f: Callable,
+    r: Callable,
+    x: np.ndarray,
+    w: np.ndarray,
+    A: np.ndarray,
+    b: np.ndarray,
+    alpha: float = 0.25,
+    beta: float = 0.5,
+):
+    n = x.size
+    m = A.shape[0]
+
+    gradient = grad_f(x).ravel()
+    H = hess_f(x).reshape(n, n)
+
+    kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
+    kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
+
+    delta_x = np.zeros_like(x)
+    delta_w = np.zeros_like(w)
+
+    try:
+        delta_x_w = solve(kkt_matrix, kkt_rhs)
+        delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
+    except RuntimeError:
+        print("Could not solve for \\Delta_x.")
+
+    t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
+
+    x = x + t * delta_x
+    w = w + t * delta_w
+
+    return x, w
 
 
 def newton(
@@ -34,37 +81,47 @@ def newton(
     grad_f: Callable,
     hess_f: Callable,
     x0: np.ndarray,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    return_dual: bool = False,
     return_loss: bool = False,
 ):
     x = x0.copy()
-    decrement_squared = np.inf
     i = 0
     loss = []
 
+    if equality is None:
+        A = np.empty((0, x.size))
+        b = np.empty(0)
+        w = np.empty(0)
+    else:
+        A, b = equality
+        w = np.zeros(A.shape[0])
+
+    r = lambda x, w: norm(
+        np.concatenate([grad_f(x).ravel() + A.T @ w, A @ x.ravel() - b])
+    )
+
     y_new = f(x)
 
-    while decrement_squared > 2 * epsilon:
+    while True:
         y = y_new
-        gradient = grad_f(x)
-        hessian = hess_f(x)
-
         if y == np.inf:
             raise ValueError(f"Reached infeasible point: {x}.")
 
-        delta_nt = np.linalg.solve(hessian, -gradient)
-        decrement_squared = np.dot(delta_nt, -gradient)
+        x, w = newton_step(f, grad_f, hess_f, r, x, w, A, b, alpha, beta)
 
-        t = backtrack_line_search(f, y, gradient, x, delta_nt, alpha, beta)
-
-        x = x + t * delta_nt
         y_new = f(x)
+        r_val = r(x, w)
 
         loss.append(y_new)
+
+        if r_val <= epsilon:
+            break
 
         if np.abs(y_new - y) < tol:
             break
@@ -74,7 +131,16 @@ def newton(
         if i >= max_iter:
             break
 
-    if return_loss:
-        return x, loss
+    output = []
+    output.append(x)
 
-    return x
+    if return_dual:
+        output.append(w)
+
+    if return_loss:
+        output.append(loss)
+
+    if len(output) == 1:
+        return output[0]
+
+    return output

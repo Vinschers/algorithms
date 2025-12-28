@@ -1,83 +1,170 @@
-from typing import Callable
+from typing import Callable, Optional
 
 import torch
 from torch.func import jacrev, hessian
+from torch.linalg import norm, ldl_factor, ldl_solve
 
 
 def backtrack_line_search(
     f: Callable,
-    y: float,
-    grad_x: torch.Tensor,
+    r: Callable,
     x: torch.Tensor,
     delta_x: torch.Tensor,
+    w: torch.Tensor,
+    delta_w: torch.Tensor,
     alpha: float,
     beta: float,
 ):
+    y = r(x, w).item()
     t = 1
-    slope = alpha * torch.vdot(grad_x, delta_x)
 
     while True:
-        try:
-            armijo = f(x + t * delta_x) <= y + t * slope
+        f_x = f(x + t * delta_x)
+        infeasible = torch.isnan(f_x) or torch.isinf(f_x)
+        feasible = not infeasible
 
-            if armijo or t < 1e-12:
+        if feasible:
+            lipschitz = (
+                r(x + t * delta_x, w + t * delta_w).item()
+                <= (1 - alpha * t) * y
+            )
+
+            if lipschitz:
                 break
 
-        except (ValueError, OverflowError):
-            pass
-
         t *= beta
+
+        if t < 1e-12:
+            break
 
     return t
 
 
-def _newton_torch(
+def solve_kkt_system(kkt_matrix, kkt_rhs, n, x_shape):
+    kkt_rhs = kkt_rhs.unsqueeze(-1)
+
+    LD, pivots = ldl_factor(kkt_matrix)
+    delta_x_w = ldl_solve(LD, pivots, kkt_rhs).flatten()
+    delta_x, delta_w = delta_x_w[:n].view(x_shape), delta_x_w[n:]
+
+    return delta_x, delta_w
+
+
+def newton_step(
+    f: Callable,
+    grad_f: Callable,
+    hess_f: Callable,
+    r: Callable,
+    x: torch.Tensor,
+    w: torch.Tensor,
+    A: torch.Tensor,
+    b: torch.Tensor,
+    alpha: float = 0.25,
+    beta: float = 0.5,
+):
+    m = A.shape[0]
+    n = x.numel()
+
+    gradient = grad_f(x).view(-1)
+    H = hess_f(x).view(n, n)
+
+    if isinstance(gradient, (list, tuple)):
+        gradient = gradient[0]
+
+    if isinstance(H, (list, tuple)):
+        H = H[0]
+
+    kkt_matrix = torch.cat(
+        (
+            torch.cat((H, A.T), dim=1),
+            torch.cat((A, torch.zeros((m, m))), dim=1),
+        ),
+        dim=0,
+    )
+    kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
+
+    delta_x = torch.zeros_like(x)
+    delta_w = torch.zeros_like(w)
+
+    try:
+        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
+    except RuntimeError:
+        print("Could not solve for \\Delta_x.")
+
+    t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
+
+    x = x + t * delta_x
+    w = w + t * delta_w
+
+    return x, w
+
+
+def newton(
     f: Callable,
     x0: torch.Tensor,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    return_dual: bool = False,
     return_loss: bool = False,
 ):
     x = x0.clone().detach().to(torch.float64)
-    decrement_squared = torch.inf
     i = 0
     loss = []
 
-    grad_f = jacrev(f)
-    hess_f = hessian(f)
+    grad_f_raw = jacrev(f)
+    hess_f_raw = hessian(f)
 
-    y_new = f(x)
+    def grad_f(x):
+        g = grad_f_raw(x)
+        if isinstance(g, (list, tuple)):
+            return g[0]
+        return g
 
-    while decrement_squared > 2 * epsilon:
+    def hess_f(x):
+        H = hess_f_raw(x)
+        if isinstance(H, (list, tuple)):
+            return H[0]
+        return H
+
+    device = x.device
+    dtype = x.dtype
+
+    if equality is None:
+        A = torch.empty((0, x.numel()), device=device, dtype=dtype)
+        b = torch.empty(0, device=device, dtype=dtype)
+        w = torch.empty(0, device=device, dtype=dtype)
+    else:
+        A, b = equality
+        w = torch.zeros(A.shape[0], device=device, dtype=dtype)
+
+    r = lambda x, w: norm(
+        torch.cat([grad_f(x).view(-1) + A.T @ w, A @ x.view(-1) - b])
+    )
+
+    with torch.no_grad():
+        y_new = f(x).item()
+
+    while True:
         y = y_new
-        gradient = grad_f(x)
-        H = hess_f(x)
-
-        if isinstance(gradient, (list, tuple)):
-            gradient = gradient[0]
-
         if y == torch.inf:
             raise ValueError(f"Reached infeasible point: {x}.")
 
-        try:
-            delta_nt = torch.linalg.solve(H, -gradient)
-        except RuntimeError:
-            print("Hessian is singular or not positive definite.")
+        with torch.no_grad():
+            x, w = newton_step(f, grad_f, hess_f, r, x, w, A, b, alpha, beta)
+
+            y_new = f(x).item()
+            r_val = r(x, w).item()
+
+        loss.append(y_new)
+
+        if r_val <= epsilon:
             break
 
-        decrement_squared = torch.vdot(delta_nt, -gradient)
-
-        t = backtrack_line_search(f, y, gradient, x, delta_nt, alpha, beta)
-
-        x = x + t * delta_nt
-        y_new = f(x)
-
-        loss.append(y_new.cpu().item())
-
-        if torch.abs(y_new - y) < tol:
+        if abs(y_new - y) < tol:
             break
 
         i += 1
@@ -85,23 +172,15 @@ def _newton_torch(
         if i >= max_iter:
             break
 
+    output = [x]
+
+    if return_dual:
+        output.append(w)
+
     if return_loss:
-        return x, loss
+        output.append(loss)
 
-    return x
+    if len(output) == 1:
+        return output[0]
 
-
-def newton(
-    f: Callable,
-    x0: torch.Tensor,
-    max_iter: int = 100,
-    tol: float = 1e-5,
-    epsilon: float = 1e-4,
-    alpha: float = 0.25,
-    beta: float = 0.5,
-    return_loss: bool = False,
-):
-    with torch.no_grad():
-        return _newton_torch(
-            f, x0, max_iter, tol, epsilon, alpha, beta, return_loss
-        )
+    return output

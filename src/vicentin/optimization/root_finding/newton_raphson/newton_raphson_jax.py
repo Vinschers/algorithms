@@ -26,7 +26,7 @@ def _newton_raphson_jax(
 
         J = jax.jacrev(lambda arg: jnp.atleast_1d(f(arg)))(x)
 
-        delta_x = jnp.linalg.lstsq(J, f_val, rcond=epsilon)[0]
+        delta_x = jnp.linalg.solve(J, f_val)
 
         new_x = x - delta_x
 

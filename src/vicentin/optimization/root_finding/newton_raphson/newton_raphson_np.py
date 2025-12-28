@@ -42,7 +42,7 @@ def newton_raphson(
 
         try:
             if grad.ndim > 1:
-                delta_x = np.linalg.lstsq(grad, f_val, rcond=None)[0]
+                delta_x = np.linalg.solve(grad, f_val)
             else:
                 if np.abs(grad) < epsilon:
                     warn("Gradient is too close to zero. Stopping.")

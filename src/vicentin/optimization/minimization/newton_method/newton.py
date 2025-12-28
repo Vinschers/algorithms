@@ -55,11 +55,13 @@ except ModuleNotFoundError:
 def newton(
     F: Sequence[Callable] | Callable,
     x0: Any,
+    equality: Optional[tuple] = None,
     max_iter: int = 100,
-    tol: float = 1e-5,
+    tol: float = 1e-8,
     epsilon: float = 1e-4,
     alpha: float = 0.25,
     beta: float = 0.5,
+    return_dual: bool = False,
     return_loss: bool = False,
     backend: Optional[str] = None,
 ):
@@ -102,6 +104,9 @@ def newton(
     x0 : Any
         Initial guess for the minimum. Must be within the domain of $f$.
         The type determines the backend (NumPy vs. PyTorch/JAX).
+    equality : tuple, optional (default=None)
+        If solving an equality constraint problem of the form A x = b, `equality`
+        should be the tuple (A, b).
     max_iter : int, optional (default=100)
         Maximum number of iterations allowed.
     tol : float, optional (default=1e-5)
@@ -112,7 +117,9 @@ def newton(
         Backtracking parameter (fraction of decrease predicted by gradient).
     beta : float, optional (default=0.5)
         Backtracking step-size reduction factor ($t := \\beta t$).
-    return_loss : bool, optional (default=True)
+    return_dual : bool, optional (default=False)
+        Whether to return the dual solution.
+    return_loss : bool, optional (default=False)
         Whether to return the sequence of function values $f(x)$ at each iteration.
 
     Returns:
@@ -126,4 +133,15 @@ def newton(
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 
-    return dispatcher(F, x0, max_iter, tol, epsilon, alpha, beta, return_loss)
+    return dispatcher(
+        F,
+        x0,
+        equality,
+        max_iter,
+        tol,
+        epsilon,
+        alpha,
+        beta,
+        return_dual,
+        return_loss,
+    )

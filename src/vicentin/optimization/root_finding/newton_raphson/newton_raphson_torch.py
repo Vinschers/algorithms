@@ -62,7 +62,7 @@ def newton_raphson(
             if jacobian.ndim > 2:
                 jacobian = jacobian.squeeze()
 
-            result = torch.linalg.lstsq(jacobian, f_val)
+            result = torch.linalg.solve(jacobian, f_val)
             delta_x = result.solution
 
         x = x - delta_x.view_as(x)
