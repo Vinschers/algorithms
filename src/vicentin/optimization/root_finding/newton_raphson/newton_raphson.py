@@ -64,9 +64,7 @@ def newton_raphson(
     x0: Any,
     max_iter: int = 20,
     tol: float = 1e-6,
-    epsilon: float = 1e-8,
     return_loss: bool = True,
-    return_convergence: bool = True,
     backend: Optional[str] = None,
 ):
     """
@@ -105,12 +103,8 @@ def newton_raphson(
         Maximum number of iterations allowed.
     tol : float, optional (default=1e-6)
         Convergence tolerance for the residual norm $\\|f(x)\\|$.
-    epsilon : float, optional (default=1e-8)
-        Stopping criteria for $\\| \\nabla f(x)\\|$.
     return_loss : bool, optional (default=False)
         Whether to return the losses throughout the iterations.
-    return_convergence : bool, optional (default=False)
-        Whether to return if the algorithm converged to a solution
     backend : str, optional (default=None)
         Forces a certain backend to compute the algorithm. Can be 'numpy', 'torch', or 'jax'.
 
@@ -120,13 +114,9 @@ def newton_raphson(
         The approximate root of the system. Type matches the input `x0`.
     loss : List[float]
         The residual norm $\\|f(x)\\|$ at each iteration.
-    converged : bool
-        Whether the algorithm converged
     """
 
     dispatcher.detect_backend(x0, backend)
     x0 = dispatcher.cast_values(x0)
 
-    return dispatcher(
-        F, x0, max_iter, tol, epsilon, return_loss, return_convergence
-    )
+    return dispatcher(F, x0, max_iter, tol, return_loss)

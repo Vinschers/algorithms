@@ -27,10 +27,21 @@ class Dispatcher:
             )
 
     def detect_backend(self, arg: Any, backend: Optional[str] = None):
-        if backend is not None and backend.lower() in SUPPORTED_BACKENDS.keys():
-            self.backend = SUPPORTED_BACKENDS[backend.lower()]
-        else:
-            self.backend = SUPPORTED_BACKENDS[arg.__class__.__module__.lower()]
+        try:
+            if (
+                backend is not None
+                and backend.lower() in SUPPORTED_BACKENDS.keys()
+            ):
+                self.backend = SUPPORTED_BACKENDS[backend.lower()]
+            else:
+                self.backend = SUPPORTED_BACKENDS[
+                    arg.__class__.__module__.lower()
+                ]
+        except KeyError:
+            self.backend = ""
+
+        if self.backend not in self._registry.keys():
+            self.backend = list(self._registry.keys())[-1]
 
     def _cast_value(self, value: Any, target_backend: str) -> Any:
         if value is None:
