@@ -25,7 +25,7 @@ def barrier_method(
     G: Sequence[Sequence[Callable]] | Sequence[Callable],
     x0: Any,
     equality: Optional[tuple] = None,
-    max_iter: int = 100,
+    max_iter: int = 30,
     epsilon: float = 1e-4,
     mu: float = 6,
     linear_solver: Optional[Callable] = None,

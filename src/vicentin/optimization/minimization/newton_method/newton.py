@@ -56,7 +56,7 @@ def newton(
     F: Sequence[Callable] | Callable,
     x0: Any,
     equality: Optional[tuple] = None,
-    max_iter: int = 100,
+    max_iter: int = 30,
     tol: float = 1e-8,
     epsilon: float = 1e-4,
     alpha: float = 0.25,

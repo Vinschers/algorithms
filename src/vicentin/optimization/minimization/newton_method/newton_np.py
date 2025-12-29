@@ -38,6 +38,40 @@ def backtrack_line_search(
     return t
 
 
+def default_solver(
+    hess_f: Callable,
+    grad_f: Callable,
+    x: np.ndarray,
+    w: np.ndarray,
+    A: np.ndarray,
+    b: np.ndarray,
+):
+    n = x.size
+    m = A.shape[0]
+
+    gradient = grad_f(x).ravel()
+    H = hess_f(x).reshape(n, n)
+
+    kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
+    kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
+
+    delta_x = np.zeros_like(x)
+    delta_w = np.zeros_like(w)
+
+    try:
+        delta_x_w = solve(kkt_matrix, kkt_rhs)
+    except RuntimeError:
+        H = H + 1e-9 * np.eye(n)
+        kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
+
+        delta_x_w = solve(kkt_matrix, kkt_rhs)
+
+    delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
+    decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
+
+    return delta_x, delta_w, decrement_squared
+
+
 def newton_step(
     f: Callable,
     grad_f: Callable,
@@ -51,33 +85,12 @@ def newton_step(
     beta: float = 0.5,
     linear_solver: Optional[Callable] = None,
 ):
-    n = x.size
+    if linear_solver is None:
+        linear_solver = default_solver
 
-    if linear_solver is not None:
-        delta_x, delta_w, decrement_squared = linear_solver(
-            hess_f, grad_f, x, w, A, b
-        )
-    else:
-        m = A.shape[0]
-        gradient = grad_f(x).ravel()
-        H = hess_f(x).reshape(n, n)
-
-        kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
-        kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
-
-        delta_x = np.zeros_like(x)
-        delta_w = np.zeros_like(w)
-
-        try:
-            delta_x_w = solve(kkt_matrix, kkt_rhs)
-        except RuntimeError:
-            H = H + 1e-9 * np.eye(n)
-            kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
-
-            delta_x_w = solve(kkt_matrix, kkt_rhs)
-
-        delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
-        decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
+    delta_x, delta_w, decrement_squared = linear_solver(
+        hess_f, grad_f, x, w, A, b
+    )
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
 

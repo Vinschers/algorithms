@@ -50,6 +50,51 @@ def solve_kkt_system(kkt_matrix, kkt_rhs, n, x_shape):
     return delta_x, delta_w
 
 
+def default_solver(
+    hess_f: Callable,
+    grad_f: Callable,
+    x: torch.Tensor,
+    w: torch.Tensor,
+    A: torch.Tensor,
+    b: torch.Tensor,
+):
+    m = A.shape[0]
+    n = x.numel()
+
+    gradient = grad_f(x).view(-1)
+    H = hess_f(x).view(n, n)
+
+    kkt_matrix = torch.cat(
+        (
+            torch.cat((H, A.T), dim=1),
+            torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
+        ),
+        dim=0,
+    )
+    kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
+
+    delta_x = torch.zeros_like(x)
+    delta_w = torch.zeros_like(w)
+
+    try:
+        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
+    except RuntimeError:
+        H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
+        kkt_matrix = torch.cat(
+            (
+                torch.cat((H, A.T), dim=1),
+                torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
+            ),
+            dim=0,
+        )
+
+        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
+
+    decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
+
+    return delta_x, delta_w, decrement_squared
+
+
 def newton_step(
     f: Callable,
     grad_f: Callable,
@@ -63,44 +108,12 @@ def newton_step(
     beta: float = 0.5,
     linear_solver: Optional[Callable] = None,
 ):
-    m = A.shape[0]
-    n = x.numel()
+    if linear_solver is None:
+        linear_solver = default_solver
 
-    if linear_solver is not None:
-        delta_x, delta_w, decrement_squared = linear_solver(
-            hess_f, grad_f, x, w, A, b
-        )
-    else:
-        gradient = grad_f(x).view(-1)
-        H = hess_f(x).view(n, n)
-
-        kkt_matrix = torch.cat(
-            (
-                torch.cat((H, A.T), dim=1),
-                torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
-            ),
-            dim=0,
-        )
-        kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
-
-        delta_x = torch.zeros_like(x)
-        delta_w = torch.zeros_like(w)
-
-        try:
-            delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
-        except RuntimeError:
-            H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
-            kkt_matrix = torch.cat(
-                (
-                    torch.cat((H, A.T), dim=1),
-                    torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
-                ),
-                dim=0,
-            )
-
-            delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
-
-        decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
+    delta_x, delta_w, decrement_squared = linear_solver(
+        hess_f, grad_f, x, w, A, b
+    )
 
     t = backtrack_line_search(f, r, x, delta_x, w, delta_w, alpha, beta)
 
