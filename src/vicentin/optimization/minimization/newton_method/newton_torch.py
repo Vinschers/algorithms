@@ -2,7 +2,7 @@ from typing import Callable, Optional
 
 import torch
 from torch.func import jacrev, hessian
-from torch.linalg import norm, ldl_factor, ldl_solve
+from torch.linalg import norm, solve
 
 
 def backtrack_line_search(
@@ -40,16 +40,6 @@ def backtrack_line_search(
     return t
 
 
-def solve_kkt_system(kkt_matrix, kkt_rhs, n, x_shape):
-    kkt_rhs = kkt_rhs.unsqueeze(-1)
-
-    LD, pivots = ldl_factor(kkt_matrix)
-    delta_x_w = ldl_solve(LD, pivots, kkt_rhs).flatten()
-    delta_x, delta_w = delta_x_w[:n].view(x_shape), delta_x_w[n:]
-
-    return delta_x, delta_w
-
-
 def default_solver(
     hess_f: Callable,
     grad_f: Callable,
@@ -58,39 +48,24 @@ def default_solver(
     A: torch.Tensor,
     b: torch.Tensor,
 ):
-    m = A.shape[0]
-    n = x.numel()
+    grad = grad_f(x)
+    H = hess_f(x)
 
-    gradient = grad_f(x).view(-1)
-    H = hess_f(x).view(n, n)
+    if torch.linalg.svdvals(H).min() < 1e-12:
+        H = H + 1e-8 * torch.eye(H.shape[-1])
 
-    kkt_matrix = torch.cat(
-        (
-            torch.cat((H, A.T), dim=1),
-            torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
-        ),
-        dim=0,
-    )
-    kkt_rhs = -torch.cat((gradient + A.T @ w, A @ x.view(-1) - b))
+    g = grad + A.T @ w
+    h = A @ x - b
 
-    delta_x = torch.zeros_like(x)
-    delta_w = torch.zeros_like(w)
+    inv_H_A = solve(H, A.T)
+    inv_H_g = solve(H, g)
 
-    try:
-        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
-    except RuntimeError:
-        H = H + 1e-9 * torch.eye(n, device=H.device, dtype=H.dtype)
-        kkt_matrix = torch.cat(
-            (
-                torch.cat((H, A.T), dim=1),
-                torch.cat((A, torch.zeros((m, m), device=H.device)), dim=1),
-            ),
-            dim=0,
-        )
+    S = -A @ inv_H_A
 
-        delta_x, delta_w = solve_kkt_system(kkt_matrix, kkt_rhs, n, x.shape)
+    delta_w = solve(S, A @ inv_H_g - h)
+    delta_x = solve(H, -A.T @ delta_w - g)
 
-    decrement_squared = delta_x.view(-1) @ H @ delta_x.view(-1)
+    decrement_squared = delta_x @ H @ delta_x
 
     return delta_x, delta_w, decrement_squared
 

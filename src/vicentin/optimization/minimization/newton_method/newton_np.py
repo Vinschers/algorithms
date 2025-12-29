@@ -46,28 +46,24 @@ def default_solver(
     A: np.ndarray,
     b: np.ndarray,
 ):
-    n = x.size
-    m = A.shape[0]
+    grad = grad_f(x)
+    H = hess_f(x)
 
-    gradient = grad_f(x).ravel()
-    H = hess_f(x).reshape(n, n)
+    if np.linalg.svd(H, compute_uv=False).min() < 1e-12:
+        H = H + 1e-8 * np.eye(H.shape[-1])
 
-    kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
-    kkt_rhs = -np.block([gradient + A.T @ w, A @ x.ravel() - b])
+    g = grad + A.T @ w
+    h = A @ x - b
 
-    delta_x = np.zeros_like(x)
-    delta_w = np.zeros_like(w)
+    inv_H_A = solve(H, A.T)
+    inv_H_g = solve(H, g)
 
-    try:
-        delta_x_w = solve(kkt_matrix, kkt_rhs)
-    except RuntimeError:
-        H = H + 1e-9 * np.eye(n)
-        kkt_matrix = np.block([[H, A.T], [A, np.zeros((m, m))]])
+    S = -A @ inv_H_A
 
-        delta_x_w = solve(kkt_matrix, kkt_rhs)
+    delta_w = solve(S, A @ inv_H_g - h)
+    delta_x = solve(H, -A.T @ delta_w - g)
 
-    delta_x, delta_w = delta_x_w[:n].reshape(x.shape), delta_x_w[n:]
-    decrement_squared = delta_x.ravel() @ H @ delta_x.ravel()
+    decrement_squared = delta_x @ H @ delta_x
 
     return delta_x, delta_w, decrement_squared
 
@@ -127,9 +123,7 @@ def newton(
         A, b = equality
         w = np.zeros(A.shape[0])
 
-    r = lambda x, w: norm(
-        np.concatenate([grad_f(x).ravel() + A.T @ w, A @ x.ravel() - b])
-    )
+    r = lambda x, w: norm(np.concatenate([grad_f(x) + A.T @ w, A @ x - b]))
 
     y_new = f(x)
 
@@ -147,7 +141,7 @@ def newton(
 
         loss.append(y_new)
 
-        feasible = np.isclose(A @ x.ravel(), b).all()
+        feasible = np.isclose(A @ x, b).all()
 
         if (not feasible and r_val <= epsilon) or (
             feasible and decrement_squared <= 2 * epsilon

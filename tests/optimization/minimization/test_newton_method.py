@@ -264,14 +264,11 @@ def test_singular_hessian_behavior(backend):
         x0 = torch.tensor([0.0], dtype=torch.float64, requires_grad=True)
 
     if backend == "numpy":
-        # Numpy implementation (assuming standard linalg.solve) usually crashes
-        with pytest.raises(np.linalg.LinAlgError):
-            newton_method(F, x0, backend=backend)
-    else:
-        # PyTorch implementation handles it!
-        # We just want to ensure it doesn't crash and returns a valid tensor
         res = newton_method(F, x0, backend=backend)
-        ProblemFactory.assert_close(res, [0.0], backend, atol=1e-1)
+    else:
+        res = newton_method(F, x0, backend=backend)
+
+    ProblemFactory.assert_close(res, [0.0], backend, atol=1e-1)
 
 
 def test_dimension_mismatch_error():
