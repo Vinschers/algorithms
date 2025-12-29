@@ -1,6 +1,7 @@
 from typing import Callable, Optional
 
 import torch
+from torch.func import jacrev
 
 from vicentin.optimization.minimization import newton_method
 
@@ -54,12 +55,12 @@ def barrier_phi(I: list, x0: torch.Tensor):
 
         return y
 
-    return phi
+    return phi, inequalities, ineq_type
 
 
 def barrier_method(
     f: Callable,
-    inequalities: list,
+    g: list,
     x0: torch.Tensor,
     equality: Optional[tuple] = None,
     max_iter: int = 100,
@@ -71,11 +72,11 @@ def barrier_method(
 ):
     x = x0.clone().detach()
     t = 1
-    m = len(inequalities)
+    m = len(g)
     loss = []
     i = 1
 
-    phi = barrier_phi(inequalities, x)
+    phi, ineqs, ineq_types = barrier_phi(g, x)
 
     while True:
         F = lambda z: t * f(z) + phi(z)
@@ -96,13 +97,21 @@ def barrier_method(
             break
 
     lambdas = []
-    for f_i in inequalities:
-        if isinstance(f_i, (list, tuple)):
-            f_i = f_i[0]
 
-        lambda_ = -1 / (t * f_i(x))
+    for i in range(m):
+        lambda_ = 0
+
+        if ineq_types[i] == STANDARD_INEQUALITY:
+            f_i = ineqs[i](x)
+            lambda_ = -1 / (t * f_i)
+        elif ineq_types[i] == LOG_INEQUALITY:
+            grad_f_i = jacrev(ineqs[i])(x)
+            grad_f_i = (
+                grad_f_i[0] if isinstance(grad_f_i, (list, tuple)) else grad_f_i
+            )
+            lambda_ = -grad_f_i / t
+
         lambdas.append(lambda_)
-    lambdas = torch.tensor(lambdas, dtype=x.dtype, device=x.device)
 
     mu = w / t
 

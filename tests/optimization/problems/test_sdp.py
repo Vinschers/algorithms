@@ -202,32 +202,21 @@ def test_sdp_solver_optimization_check(backend):
     ---------------------
     Goal: Verify that the backend uses a structure-exploiting linear solver
     (e.g., avoiding the full O(n^6) Hessian inversion).
-
-    Parameters:
-    - n = 40: Creates a Hessian of size 1600x1600.
-    - Naive O(n^6): ~4.1 billion ops/iter -> Takes > 2.0s on most CPUs.
-    - Optimized O(n^4): -> Takes < 0.1s.
-
-    Expected Result:
-    - NumPy: PASS (Fast custom solver).
-    - PyTorch: FAIL (Slow generic solver).
     """
     # 1. Setup Large Problem (n=40)
-    n = 100
+    n = 40
     m = 12
-    TIME_LIMIT_SECONDS = 10
-
-    print(f"\n[Backend: {backend}] Benchmarking n={n}...")
+    TIME_LIMIT_SECONDS = 1
 
     if backend == "numpy":
-        np.random.seed(12)
+        rng = np.random.RandomState(12)
 
         X0 = np.eye(n)
-        C = np.random.randn(n, n)
+        C = rng.randn(n, n)
         C = (C + C.T) / 2
         constraints = []
         for _ in range(m):
-            A = np.random.randn(n, n)
+            A = rng.randn(n, n)
             A = (A + A.T) / 2
             b = np.trace(A)  # Ensure feasibility
             constraints.append((A, b))

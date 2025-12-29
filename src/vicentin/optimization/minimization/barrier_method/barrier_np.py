@@ -91,7 +91,7 @@ def barrier_functions(I: Sequence[Sequence], x0: np.ndarray):
 
         return hess
 
-    return phi, grad_phi, hess_phi
+    return phi, grad_phi, hess_phi, inequalities, ineq_type
 
 
 def barrier_method(
@@ -107,13 +107,12 @@ def barrier_method(
     return_loss: bool = False,
 ):
     f, grad_f, hess_f = F
-    inequalities = G
 
-    phi, grad_phi, hess_phi = barrier_functions(inequalities, x0)
+    phi, grad_phi, hess_phi, ineqs, ineq_types = barrier_functions(G, x0)
 
     x = x0.copy()
     t = 1
-    m = len(inequalities)
+    m = len(ineqs)
     loss = []
     i = 1
 
@@ -143,10 +142,16 @@ def barrier_method(
             break
 
     lambdas = []
-    for f_i in inequalities:
-        lambda_ = -1 / (t * f_i[0](x))
+    for i in range(m):
+        lambda_ = 0
+
+        if ineq_types[i] == STANDARD_INEQUALITY:
+            f_i = ineqs[i][0](x)
+            lambda_ = -1 / (t * f_i)
+        elif ineq_types[i] == LOG_INEQUALITY:
+            lambda_ = -ineqs[i][1](x) / t
+
         lambdas.append(lambda_)
-    lambdas = np.array(lambdas)
 
     mu = w / t
 
