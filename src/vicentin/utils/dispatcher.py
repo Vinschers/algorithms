@@ -47,11 +47,18 @@ class Dispatcher:
         if value is None:
             return None
 
+        if isinstance(value, (list, tuple)):
+            return [self._cast_value(v, target_backend) for v in value]
+
         if target_backend == "torch":
             import torch
 
             if not torch.is_tensor(value):
-                return torch.as_tensor(value, dtype=torch.float32)
+                try:
+                    return torch.as_tensor(value, dtype=torch.float32)
+                except TypeError:
+                    return torch.as_tensor(value)
+            return value
 
         elif target_backend == "jax":
             import jax.numpy as jnp

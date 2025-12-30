@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 
 def barrier_method(
     F: Sequence[Callable] | Callable,
-    G: Sequence[Sequence[Callable]] | Sequence[Callable],
+    G: Sequence,
     x0: Any,
     equality: Optional[tuple] = None,
     max_iter: int = 30,
@@ -31,6 +31,7 @@ def barrier_method(
     linear_solver: Optional[Callable] = None,
     return_dual: bool = False,
     return_loss: bool = False,
+    return_t: bool = False,
     backend: Optional[str] = None,
 ):
     """
@@ -133,6 +134,8 @@ def barrier_method(
     return_loss : bool, optional (default=False)
         Whether to return the sequence of objective values at the end of each
         centering step.
+    return_t : bool, optional (default=False)
+        Whether to return the last value of `t` from the barrier iteration.
     backend : str, optional (default=None)
         Explicitly specify 'numpy', 'torch', or 'jax'. If None,
         inferred from `x0`.
@@ -163,4 +166,5 @@ def barrier_method(
         linear_solver,
         return_dual,
         return_loss,
+        return_t,
     )

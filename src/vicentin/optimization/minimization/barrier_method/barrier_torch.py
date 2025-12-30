@@ -69,6 +69,7 @@ def barrier_method(
     linear_solver: Optional[Callable] = None,
     return_dual: bool = False,
     return_loss: bool = False,
+    return_t: bool = False,
 ):
     x = x0.clone().detach()
     t = 1
@@ -122,6 +123,9 @@ def barrier_method(
 
     if return_loss:
         output.append(loss)
+
+    if return_t:
+        output.append(t)
 
     if len(output) == 1:
         return output[0]

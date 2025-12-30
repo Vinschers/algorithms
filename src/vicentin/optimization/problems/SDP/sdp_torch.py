@@ -2,8 +2,20 @@ from typing import Any, Callable, Sequence, Tuple
 import math
 
 import torch
-from torch.linalg import slogdet, solve
+from torch.linalg import solve
 from vicentin.optimization.minimization import barrier_method
+
+
+def cholesky(X):
+    return torch.linalg.cholesky(X)
+
+
+def inv(X):
+    L = cholesky(X)
+    L_inv = solve(L, torch.eye(L.shape[0], dtype=L.dtype))
+    X_inv = L_inv.T @ L_inv
+
+    return X_inv
 
 
 def sdp_linear_solver(
@@ -54,6 +66,7 @@ def SDP(
     max_iter: int = 100,
     epsilon: float = 1e-4,
     mu: float = 6,
+    return_dual: bool = False,
 ):
     n = X0.shape[0]
 
@@ -75,16 +88,17 @@ def SDP(
 
     def psd_inequality(x):
         X = x.reshape((n, n))
-        sign, logdet = slogdet(X)
 
-        if sign <= 0:
+        try:
+            L = cholesky(X)
+            logdet = 2 * torch.sum(torch.log(torch.diag(L)))
+            return -logdet
+        except RuntimeError:
             return torch.tensor(float("inf"), dtype=x.dtype, device=x.device)
-
-        return -logdet
 
     G = [(psd_inequality, 1)]
 
-    x_star = barrier_method(
+    x_star, (_, y_star) = barrier_method(
         F,
         G,
         X0.flatten(),
@@ -92,8 +106,115 @@ def SDP(
         max_iter,
         epsilon,
         mu,
-        linear_solver=sdp_linear_solver,
+        sdp_linear_solver,
+        True,
     )
-    X_star = x_star.reshape((n, n))
 
-    return X_star
+    X_star = x_star.reshape((n, n))
+    X_star = (X_star + X_star.T) / 2
+
+    return (X_star, -y_star) if return_dual else X_star
+
+
+def _single_SDP_dual(
+    b: torch.Tensor | float,
+    A: torch.Tensor,
+    C: torch.Tensor,
+    y0: torch.Tensor,
+    max_iter: int = 100,
+    epsilon: float = 1e-4,
+    mu: float = 6,
+    return_dual=False,
+):
+    b = torch.as_tensor(b, device=y0.device, dtype=y0.dtype)
+    f = lambda y: -b.dot(y)
+
+    S = lambda y: C - torch.tensordot(A, y, dims=([0], [0]))
+
+    def psd_inequality(y):
+        try:
+            L = cholesky(S(y))
+            logdet = 2 * torch.sum(torch.log(torch.diag(L)))
+            return -logdet
+        except RuntimeError:
+            return torch.tensor(float("inf"), dtype=y.dtype, device=y.device)
+
+    G = [(psd_inequality, 1)]
+
+    y_star, t = barrier_method(
+        f, G, y0, None, max_iter, epsilon, mu, return_t=True
+    )
+
+    X_star = inv(S(y_star)) / t
+
+    return (y_star, X_star) if return_dual else y_star
+
+
+def normalize_to_nested_list(LMIs: Any):
+    if isinstance(LMIs, torch.Tensor):
+        LMIs = [LMIs]
+
+    result = []
+
+    for item in LMIs:
+        if isinstance(item, (list, tuple)):
+            result.append([torch.as_tensor(m) for m in item])
+
+        elif isinstance(item, torch.Tensor):
+            if item.ndim == 3:
+                result.append([mat for mat in item])
+            elif item.ndim == 2:
+                result.append([item])
+            else:
+                raise ValueError(f"Tensor must be 2D or 3D, got {item.ndim}D")
+
+        else:
+            raise TypeError(f"Unsupported type in sequence: {type(item)}")
+
+    return result
+
+
+def SDP_dual(
+    b: torch.Tensor | float,
+    LMIs: (
+        Sequence[Sequence[torch.Tensor]] | Sequence[torch.Tensor] | torch.Tensor
+    ),
+    y0: torch.Tensor,
+    max_iter: int = 100,
+    epsilon: float = 1e-4,
+    mu: float = 6,
+    return_dual=False,
+):
+    if isinstance(b, torch.Tensor):
+        m = b.numel()
+    else:
+        m = 1
+
+    LMIs = normalize_to_nested_list(LMIs)
+
+    c_blocks = []
+    a_stacks = [[] for _ in range(m)]
+
+    for lmi in LMIs:
+        if len(lmi) != m + 1:
+            raise ValueError(
+                f"LMI block has {len(lmi)} matrices, expected {m} coefficients + 1 constant (total {m+1})."
+            )
+
+        coeffs = lmi[:-1]
+        constant = lmi[-1]
+
+        c_blocks.append(constant)
+
+        for i in range(m):
+            a_stacks[i].append(coeffs[i])
+
+    C = torch.block_diag(*c_blocks)
+
+    A = []
+    for i in range(m):
+        A.append(torch.block_diag(*a_stacks[i]))
+
+    A = torch.stack(A)
+
+    return _single_SDP_dual(b, A, C, y0, max_iter, epsilon, mu, return_dual)

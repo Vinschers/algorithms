@@ -3,101 +3,141 @@ import time
 import numpy as np
 import torch
 
-from vicentin.optimization.problems import SDP
+# Assuming the algorithms are in this module
+from vicentin.optimization.problems import SDP, SDP_dual
 
 
 class ProblemFactory:
     """
-    Constructs valid SDP problems with known solutions.
+    Constructs valid SDP problems (Primal and Dual) with known solutions.
     """
 
     @staticmethod
     def get_min_eigenvalue_problem(backend):
         """
-        Problem: Minimize the maximum eigenvalue of a symmetric matrix M.
-        Let M = diag(1, 2). We want to find scalar 's' such that M <= s*I.
-        This can be cast as an SDP:
-            Min s
-            s.t. s*I - M >= 0 (Positive Semidefinite)
-
-        However, your solver is in standard form (Min Tr(CX) s.t. Tr(AX)=b, X>=0).
-        Standard form conversion is complex, so we test a simpler direct standard form problem.
-
-        Simple Standard Form Problem:
-        Min Tr(C X)
-        s.t. Tr(X) = 1, X >= 0
+        Problem: Min Tr(C X) s.t. Tr(X)=1, X >= 0
         Where C = diag(1, 2).
 
-        The solution should put all "mass" on the smallest diagonal entry of C.
-        Optimal X = diag(1, 0) -> Objective = 1*1 + 2*0 = 1.
+        Analytical Solution:
+        Primal X*: diag(1, 0) -> Obj = 1.0
+
+        Dual Problem:
+        Max b^T y  s.t.  y_1 * A_1 <= C
+        Where b = [1], A_1 = I.
+        Max y s.t. y * I <= diag(1, 2) => y <= 1.
+        Dual y*: [1.0] -> Obj = 1.0
         """
         if backend == "numpy":
             C = np.diag([1.0, 2.0])
-            # Constraint: Tr(I * X) = 1 (i.e., trace of X is 1)
             A1 = np.eye(2)
             b1 = 1.0
-            eq_constraints = [(A1, b1)]
 
-            # X0 must be strictly positive definite AND satisfy trace(X)=1
-            # X0 = diag(0.5, 0.5) works perfectly.
-            X0 = np.diag([0.5, 0.5])
+            # Primal Inputs
+            # X0 = diag(0.5, 0.5) satisfies Tr(X)=1 and X > 0
+            primal_args = {
+                "C": C,
+                "equality_constraints": [(A1, b1)],
+                "X0": np.diag([0.5, 0.5]),
+            }
+
+            # Dual Inputs
+            # LMIs structure: [[A1, C]] (Single block)
+            # y0 = 0.0 satisfies 0*I < C (Strictly feasible)
+            dual_args = {
+                "b": np.array([1.0]),
+                "LMIs": [[A1, C]],
+                "y0": np.array([0.0]),
+            }
+
+            expected_X = np.diag([1.0, 0.0])
+            expected_y = np.array([1.0])
 
         elif backend == "pytorch":
-            C = torch.tensor([[1.0, 0.0], [0.0, 2.0]], dtype=torch.float64)
-            A1 = torch.eye(2, dtype=torch.float64)
-            b1 = 1.0
-            eq_constraints = [(A1, b1)]
-            X0 = torch.tensor(
-                [[0.5, 0.0], [0.0, 0.5]],
-                dtype=torch.float64,
-                requires_grad=True,
-            )
+            dtype = torch.float64
+            C = torch.tensor([[1.0, 0.0], [0.0, 2.0]], dtype=dtype)
+            A1 = torch.eye(2, dtype=dtype)
 
-        return C, eq_constraints, X0, 1.0  # Expected objective value
+            primal_args = {
+                "C": C,
+                "equality_constraints": [(A1, 1.0)],
+                "X0": torch.tensor(
+                    [[0.5, 0.0], [0.0, 0.5]], dtype=dtype, requires_grad=True
+                ),
+            }
+
+            dual_args = {
+                "b": torch.tensor([1.0], dtype=dtype),
+                "LMIs": [[A1, C]],
+                "y0": torch.tensor([0.0], dtype=dtype, requires_grad=True),
+            }
+
+            expected_X = torch.tensor([[1.0, 0.0], [0.0, 0.0]], dtype=dtype)
+            expected_y = torch.tensor([1.0], dtype=dtype)
+
+        return primal_args, dual_args, expected_X, expected_y
 
     @staticmethod
     def get_correlation_matrix_problem(backend):
         """
         Find the nearest correlation matrix (diagonal must be 1).
-        Problem:
-        Min Tr(0*X)  (Feasibility problem really, or minimal norm if we formulated it that way)
-        Let's try: Min Tr(X)
-        s.t. X_11 = 1, X_22 = 1, X >= 0
+        Min Tr(I * X) s.t. X_11=1, X_22=1.
 
-        Optimal X should be diag(1, 1). Objective = 2.
+        Analytical Solution:
+        Primal X*: diag(1, 1) -> Obj = 2.0
+
+        Dual Problem:
+        Max y1 + y2
+        s.t. y1*A1 + y2*A2 <= I
+        diag(y1, y2) <= I  => y1<=1, y2<=1
+        Optimal y*: [1.0, 1.0]
         """
         if backend == "numpy":
             C = np.eye(2)  # Min Tr(X)
 
-            # Constraints: X_11 = 1, X_22 = 1
             # A1 selects X_11: [[1,0],[0,0]]
             A1 = np.array([[1.0, 0.0], [0.0, 0.0]])
-            b1 = 1.0
-
             # A2 selects X_22: [[0,0],[0,1]]
             A2 = np.array([[0.0, 0.0], [0.0, 1.0]])
-            b2 = 1.0
 
-            eq_constraints = [(A1, b1), (A2, b2)]
+            primal_args = {
+                "C": C,
+                "equality_constraints": [(A1, 1.0), (A2, 1.0)],
+                "X0": np.array([[1.0, 0.0], [0.0, 1.0]]),
+            }
 
-            # Start at valid point
-            X0 = np.array([[1.0, 0.0], [0.0, 1.0]])
+            dual_args = {
+                "b": np.array([1.0, 1.0]),
+                "LMIs": [[A1, A2, C]],  # [A_y1, A_y2, Bound]
+                "y0": np.array([0.0, 0.0]),  # 0 < I is strictly feasible
+            }
+
+            expected_X = np.eye(2)
+            expected_y = np.array([1.0, 1.0])
 
         elif backend == "pytorch":
-            C = torch.eye(2, dtype=torch.float64)
-            A1 = torch.tensor([[1.0, 0.0], [0.0, 0.0]], dtype=torch.float64)
-            b1 = 1.0
-            A2 = torch.tensor([[0.0, 0.0], [0.0, 1.0]], dtype=torch.float64)
-            b2 = 1.0
+            dtype = torch.float64
+            C = torch.eye(2, dtype=dtype)
+            A1 = torch.tensor([[1.0, 0.0], [0.0, 0.0]], dtype=dtype)
+            A2 = torch.tensor([[0.0, 0.0], [0.0, 1.0]], dtype=dtype)
 
-            eq_constraints = [(A1, b1), (A2, b2)]
-            X0 = torch.tensor(
-                [[1.0, 0.0], [0.0, 1.0]],
-                dtype=torch.float64,
-                requires_grad=True,
-            )
+            primal_args = {
+                "C": C,
+                "equality_constraints": [(A1, 1.0), (A2, 1.0)],
+                "X0": torch.tensor(
+                    [[1.0, 0.0], [0.0, 1.0]], dtype=dtype, requires_grad=True
+                ),
+            }
 
-        return C, eq_constraints, X0, [1.0, 1.0]  # Expected Diagonals
+            dual_args = {
+                "b": torch.tensor([1.0, 1.0], dtype=dtype),
+                "LMIs": [[A1, A2, C]],
+                "y0": torch.tensor([0.0, 0.0], dtype=dtype, requires_grad=True),
+            }
+
+            expected_X = torch.eye(2, dtype=dtype)
+            expected_y = torch.tensor([1.0, 1.0], dtype=dtype)
+
+        return primal_args, dual_args, expected_X, expected_y
 
     @staticmethod
     def assert_close(val1, val2, backend, atol=1e-3):
@@ -108,68 +148,66 @@ class ProblemFactory:
                 val1 = torch.tensor(val1)
             if not torch.is_tensor(val2):
                 val2 = torch.tensor(val2)
+            # Detach gradients if present for comparison
+            if val1.requires_grad:
+                val1 = val1.detach()
+            if val2.requires_grad:
+                val2 = val2.detach()
+            # Ensure types match
             if val1.dtype != val2.dtype:
                 val2 = val2.to(dtype=val1.dtype)
             assert torch.allclose(val1, val2, atol=atol)
+
+
+# ==========================================
+# 1. ORIGINAL PRIMAL TESTS (Restored)
+# ==========================================
 
 
 @pytest.mark.parametrize("backend", ["numpy", "pytorch"])
 def test_trace_minimization(backend):
     """
     Min Tr(CX) s.t. Tr(X)=1, X>=0.
-    With C = diag(1, 2).
-    Optimal X should have 1.0 at X_11 (associated with smaller cost 1)
-    and 0.0 at X_22 (associated with larger cost 2).
     """
-    C, constraints, X0, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
-
-    # Run SDP
-    X_star = SDP(
-        C, constraints, X0, epsilon=1e-5, max_iter=200, backend=backend
+    p_args, _, expected_X, _ = ProblemFactory.get_min_eigenvalue_problem(
+        backend
     )
 
-    # Check that X_star is close to diag(1, 0)
-    expected = [[1.0, 0.0], [0.0, 0.0]]
-    ProblemFactory.assert_close(X_star, expected, backend, atol=1e-1)
+    X_star = SDP(**p_args, epsilon=1e-5, max_iter=200, backend=backend)
+
+    ProblemFactory.assert_close(X_star, expected_X, backend, atol=1e-1)
 
 
 @pytest.mark.parametrize("backend", ["numpy", "pytorch"])
 def test_correlation_matrix_constraints(backend):
     """
     Test multiple equality constraints fixing the diagonal elements.
-    Ensures the solver handles >1 constraint correctly.
     """
-    C, constraints, X0, _ = ProblemFactory.get_correlation_matrix_problem(
+    p_args, _, expected_X, _ = ProblemFactory.get_correlation_matrix_problem(
         backend
     )
 
-    X_star = SDP(C, constraints, X0, epsilon=1e-5, backend=backend)
+    X_star = SDP(**p_args, epsilon=1e-5, backend=backend)
 
-    # We expect X to remain diagonal diag(1, 1) because C=I prefers minimal trace
-    # and constraints force diagonals to be 1.
-    expected = [[1.0, 0.0], [0.0, 1.0]]
-    ProblemFactory.assert_close(X_star, expected, backend, atol=1e-3)
+    ProblemFactory.assert_close(X_star, expected_X, backend, atol=1e-3)
 
 
 @pytest.mark.parametrize("backend", ["numpy", "pytorch"])
 def test_invalid_initial_point_not_positive_definite(backend):
     """
-    Strict Feasibility Check:
-    If X0 is not positive definite (e.g. has negative eigenvalues),
-    the log-barrier -log(det(X0)) is undefined or complex.
-    The solver MUST raise an error.
+    Strict Feasibility Check: X0 must be positive definite.
     """
-    C, constraints, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+    p_args, _, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+    C = p_args["C"]
+    constraints = p_args["equality_constraints"]
 
     if backend == "numpy":
-        # Create an Indefinite matrix (eigenvalues +1, -1)
         X0_bad = np.array([[1.0, 0.0], [0.0, -1.0]])
     else:
         X0_bad = torch.tensor(
             [[1.0, 0.0], [0.0, -1.0]], dtype=torch.float64, requires_grad=True
         )
 
-    # We expect a ValueError or LinearAlgebraError (domain error for log)
     with pytest.raises((ValueError, RuntimeError, np.linalg.LinAlgError)):
         SDP(C, constraints, X0_bad, backend=backend)
 
@@ -179,10 +217,11 @@ def test_invalid_constraint_dimensions(backend):
     """
     Test that mismatched dimensions between C and Constraints raise error.
     """
-    C, _, X0, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+    p_args, _, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+    C = p_args["C"]
+    X0 = p_args["X0"]
 
     if backend == "numpy":
-        # Constraint matrix shape (3,3) vs C shape (2,2)
         A_bad = np.eye(3)
         b_bad = 1.0
     else:
@@ -199,18 +238,13 @@ def test_invalid_constraint_dimensions(backend):
 def test_sdp_solver_optimization_check(backend):
     """
     PERFORMANCE BENCHMARK
-    ---------------------
-    Goal: Verify that the backend uses a structure-exploiting linear solver
-    (e.g., avoiding the full O(n^6) Hessian inversion).
     """
-    # 1. Setup Large Problem (n=40)
     n = 40
     m = 12
     TIME_LIMIT_SECONDS = 1
 
     if backend == "numpy":
         rng = np.random.RandomState(12)
-
         X0 = np.eye(n)
         C = rng.randn(n, n)
         C = (C + C.T) / 2
@@ -218,11 +252,10 @@ def test_sdp_solver_optimization_check(backend):
         for _ in range(m):
             A = rng.randn(n, n)
             A = (A + A.T) / 2
-            b = np.trace(A)  # Ensure feasibility
+            b = np.trace(A)
             constraints.append((A, b))
     else:
-        torch.random.manual_seed(12)
-
+        torch.manual_seed(12)
         X0 = torch.eye(n, dtype=torch.float64, requires_grad=True)
         C = torch.randn((n, n), dtype=torch.float64)
         C = (C + C.T) / 2
@@ -233,20 +266,129 @@ def test_sdp_solver_optimization_check(backend):
             b = torch.trace(A)
             constraints.append((A, b))
 
-    # 2. Run the Solver & Measure Time
     start_time = time.time()
 
-    # Run exactly 2 iterations.
-    # We ignore the result; we only care about speed.
+    # Run exactly 2 iterations for speed check
     SDP(C, constraints, X0, max_iter=2, epsilon=1e-3, backend=backend)
 
     elapsed = time.time() - start_time
     print(f"  -> Finished in {elapsed:.4f}s")
 
-    # 3. Assert Time Limit
     if elapsed > TIME_LIMIT_SECONDS:
         pytest.fail(
             f"Performance Failure: {backend} took {elapsed:.4f}s, "
-            f"exceeding the limit of {TIME_LIMIT_SECONDS}s.\n"
-            f"Likely cause: Using O(n^6) naive solver instead of optimized custom solver."
+            f"exceeding the limit of {TIME_LIMIT_SECONDS}s."
         )
+
+
+# ==========================================
+# 2. NEW DUAL & CONSISTENCY TESTS
+# ==========================================
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_dual_solver_basic(backend):
+    """
+    Test the SDP_dual function in isolation against analytical solution.
+    """
+    _, dual_args, _, expected_y = ProblemFactory.get_min_eigenvalue_problem(
+        backend
+    )
+
+    y_star = SDP_dual(**dual_args, epsilon=1e-5, backend=backend)
+
+    ProblemFactory.assert_close(y_star, expected_y, backend, atol=1e-2)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_primal_returns_dual_consistency(backend):
+    """
+    Check if SDP(return_dual=True) returns a 'y' that matches the
+    solution found by the explicit SDP_dual solver.
+    """
+    # Using correlation matrix problem as it has 2 constraints (y is vector size 2)
+    p_args, dual_args, _, _ = ProblemFactory.get_correlation_matrix_problem(
+        backend
+    )
+
+    # 1. Solve Primal asking for Dual -> (X_star, y_implicit)
+    X_p, y_p = SDP(**p_args, return_dual=True, epsilon=1e-5, backend=backend)
+
+    # 2. Solve Dual explicitly -> y_explicit
+    y_d = SDP_dual(**dual_args, epsilon=1e-5, backend=backend)
+
+    # The y returned by Primal should match the y found by Dual solver
+    ProblemFactory.assert_close(y_p, y_d, backend, atol=1e-2)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_dual_returns_primal_consistency(backend):
+    """
+    Check if SDP_dual(return_dual=True) returns an 'X' that matches the
+    solution found by the explicit SDP solver.
+    """
+    p_args, dual_args, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+
+    # 1. Solve Dual asking for Primal (Lagrange multiplier) -> (y_star, X_implicit)
+    y_d, X_d = SDP_dual(
+        **dual_args, return_dual=True, epsilon=1e-5, backend=backend
+    )
+
+    # 2. Solve Primal explicitly -> X_explicit
+    X_p = SDP(**p_args, epsilon=1e-5, backend=backend)
+
+    # The X returned by Dual should match the X found by Primal solver
+    ProblemFactory.assert_close(X_d, X_p, backend, atol=1e-2)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_strong_duality_gap(backend):
+    """
+    Verify Strong Duality: Primal Objective == Dual Objective.
+    Primal: min Tr(CX)
+    Dual: max b^T y
+    """
+    p_args, dual_args, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+
+    X_star = SDP(**p_args, epsilon=1e-6, backend=backend)
+    y_star = SDP_dual(**dual_args, epsilon=1e-6, backend=backend)
+
+    # Calculate Objectives
+    if backend == "numpy":
+        primal_obj = np.trace(p_args["C"] @ X_star)
+        dual_obj = np.dot(dual_args["b"], y_star)
+    else:
+        primal_obj = torch.trace(p_args["C"] @ X_star)
+        dual_obj = torch.dot(dual_args["b"], y_star)
+
+    # Assert gap is small
+    # Note: Primal minimizes, Dual maximizes. At optimality P = D.
+    ProblemFactory.assert_close(primal_obj, dual_obj, backend, atol=1e-3)
+
+
+@pytest.mark.parametrize("backend", ["numpy", "pytorch"])
+def test_dual_feasibility_check(backend):
+    """
+    Ensure the solution returned by SDP_dual satisfies the LMI constraint:
+    sum(y_i * A_i) <= C  -->  C - sum(...) >= 0 (PSD)
+    """
+    _, dual_args, _, _ = ProblemFactory.get_min_eigenvalue_problem(backend)
+
+    y_star = SDP_dual(**dual_args, epsilon=1e-5, backend=backend)
+
+    # Reconstruct the slack matrix S = C - sum(y_i A_i)
+    # For this problem: LMIs = [[A1, C]]
+    A1 = dual_args["LMIs"][0][0]
+    C = dual_args["LMIs"][0][1]
+
+    if backend == "numpy":
+        S = C - y_star[0] * A1
+        eigvals = np.linalg.eigvalsh(S)
+        min_eig = eigvals.min()
+        assert min_eig > -1e-4
+    else:
+        S = C - y_star[0] * A1
+        eigvals = torch.linalg.eigvalsh(S)
+        min_eig = eigvals.min()
+        # detach for assertion
+        assert min_eig.detach().item() > -1e-4
