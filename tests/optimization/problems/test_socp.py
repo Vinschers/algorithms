@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 import torch
 import time
-from typing import Any, Sequence, Optional, Tuple
 
 
 from vicentin.optimization.problems import SOCP

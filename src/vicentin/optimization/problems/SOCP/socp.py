@@ -105,7 +105,9 @@ def SOCP(
     """
 
     socp.detect_backend(x0, backend)
-    x0 = socp.cast_values(x0)
+    f, socp_constraints, F, g, x0 = socp.cast_values(
+        f, socp_constraints, F, g, x0
+    )
 
     return socp(
         f,

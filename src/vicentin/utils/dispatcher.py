@@ -12,7 +12,10 @@ SUPPORTED_BACKENDS = {
 class Dispatcher:
     def __init__(self):
         self._registry: Dict[str, Tuple[Callable, Optional[Callable]]] = {}
+
         self.backend = None
+        self.dtype = None
+        self.device = None
 
     def register(
         self,
@@ -43,6 +46,9 @@ class Dispatcher:
         if self.backend not in self._registry.keys():
             self.backend = list(self._registry.keys())[-1]
 
+        self.dtype = getattr(arg, "dtype", None)
+        self.device = getattr(arg, "device", None)
+
     def _cast_value(self, value: Any, target_backend: str) -> Any:
         if value is None:
             return None
@@ -55,7 +61,9 @@ class Dispatcher:
 
             if not torch.is_tensor(value):
                 try:
-                    return torch.as_tensor(value, dtype=torch.float32)
+                    return torch.as_tensor(
+                        value, dtype=self.dtype, device=self.device
+                    )
                 except TypeError:
                     return torch.as_tensor(value)
             return value
@@ -63,14 +71,12 @@ class Dispatcher:
         elif target_backend == "jax":
             import jax.numpy as jnp
 
-            return jnp.array(value)
+            return jnp.array(value, dtype=self.dtype)
 
         elif target_backend == "np":
             import numpy as np
 
-            if np.ndim(value) == 0:
-                return np.float32(value)
-            return np.array(value)
+            return np.array(value, dtype=self.dtype)
 
         return value
 
