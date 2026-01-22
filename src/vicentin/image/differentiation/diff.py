@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple
 from vicentin.utils import Dispatcher
 
 disp_finite_diffs = Dispatcher()
