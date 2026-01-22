@@ -116,7 +116,7 @@ def sobel(
     Computes image gradients using the Sobel operator.
 
     The Sobel operator calculates the gradient approximation by convolving the image with
-    two $3 \times 3$ kernels. These kernels emphasize high-frequency changes (edges) while providing
+    two $3 \\times 3$ kernels. These kernels emphasize high-frequency changes (edges) while providing
     slight Gaussian smoothing orthogonal to the derivative direction to reduce noise.
 
     Kernels:
@@ -218,7 +218,7 @@ def grad(
 
 def laplacian(
     img: Any,
-    method: Optional[str] = None,
+    method: Optional[str] = "direct",
     boundary: Optional[str] = "reflect",
     backend: Optional[str] = None,
 ) -> Any:
