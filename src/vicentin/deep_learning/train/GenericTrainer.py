@@ -6,6 +6,7 @@ from collections import defaultdict
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from torch import autocast
 from torch.amp import GradScaler  # pyright: ignore[reportPrivateImportUsage]
 from tqdm.auto import tqdm
@@ -186,10 +187,10 @@ class GenericTrainer(ABC):
     def fit(
         self,
         train_loader,
-        val_loader=None,
-        epochs=10,
-        checkpoint_path="checkpoint.pt",
-        monitor="val_loss",
+        val_loader: Optional[DataLoader] = None,
+        epochs: int = 10,
+        checkpoint_path: Optional[str] = None,
+        monitor: Optional[str] = "val_loss",
         mode: Union[str, int] = "min",
         resume_from: Optional[str] = None,
     ):
@@ -236,7 +237,7 @@ class GenericTrainer(ABC):
             )
 
             val_metrics = {}
-            if val_loader:
+            if val_loader is not None:
                 val_metrics = self._run_epoch_loop(
                     loader=val_loader,
                     step_method=self.validate_step,
@@ -250,8 +251,14 @@ class GenericTrainer(ABC):
             )
             print(f"End of Epoch {epoch+1}: {log_str}")
 
-            best_score = self._handle_checkpoint(
-                epoch, all_metrics, checkpoint_path, mode, monitor, best_score
-            )
+            if checkpoint_path is not None and monitor is not None:
+                best_score = self._handle_checkpoint(
+                    epoch,
+                    all_metrics,
+                    checkpoint_path,
+                    mode,
+                    monitor,
+                    best_score,
+                )
 
         return dict(self.history)
