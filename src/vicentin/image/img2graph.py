@@ -1,8 +1,11 @@
+from typing import Any, Callable, Optional
 from vicentin import Graph
 from vicentin.image.utils import get_neighbors
 
 
-def _compute_edges(H, W, L, img, weight_func, neighborhood):
+def _compute_edges(
+    H: int, W: int, L: int, img: Any, weight_func: Callable, neighborhood: int
+):
     """
     Computes the weighted edges of a graph representation of an image.
 
@@ -14,7 +17,7 @@ def _compute_edges(H, W, L, img, weight_func, neighborhood):
         H (int): The height (number of rows) of the image.
         W (int): The width (number of columns) of the image.
         L (int): The depth (number of channels) of the image.
-        img (numpy.ndarray or jnp.ndarray): A 1D, 2D, or 3D NumPy array representing the image.
+        img (numpy.ndarray or torch.Tensor): A 1D, 2D, or 3D NumPy array representing the image.
         weight_func (callable): A function `f(u, v) -> float` that computes edge
                                 weights based on pixel values.
         neighborhood (int): The type of neighborhood connectivity:
@@ -51,7 +54,9 @@ def _compute_edges(H, W, L, img, weight_func, neighborhood):
     return edges
 
 
-def img2graph(img, weight_func=None, neighborhood=4):
+def img2graph(
+    img: Any, weight_func: Optional[Callable] = None, neighborhood: int = 4
+):
     """
     Converts a 1D, 2D, or 3D image into a graph representation.
 
@@ -60,7 +65,7 @@ def img2graph(img, weight_func=None, neighborhood=4):
     are determined by a user-defined function (defaulting to squared intensity difference).
 
     Args:
-        img (numpy.ndarray or jnp.ndarray): An array of shape (N,), (N, M), or (N, M, L)
+        img (numpy.ndarray or torch.Tensor): An array of shape (N,), (N, M), or (N, M, L)
                              representing a 1D, 2D, or 3D image.
         weight_func (callable, optional): A function `f(u, v) -> float` that computes edge
                                           weights based on pixel values.

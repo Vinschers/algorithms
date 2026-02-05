@@ -21,7 +21,7 @@ class VAETrainer(GenericTrainer):
         float16: bool = False,
         sample_path: str = "vae_samples",
         n_imgs_val: int = 8,
-        export_mode: Literal["save", "show", None] = "show",
+        export_mode: Literal["save", "show", None] = None,
     ):
         super().__init__(
             models={"vae": model},

@@ -57,15 +57,16 @@ class Dispatcher:
             return [self._cast_value(v, target_backend) for v in value]
 
         if target_backend == "torch":
+            import numpy as np
             import torch
 
             if not torch.is_tensor(value):
                 try:
                     return torch.as_tensor(
-                        value, dtype=self.dtype, device=self.device
+                        np.copy(value), dtype=self.dtype, device=self.device
                     )
                 except TypeError:
-                    return torch.as_tensor(value)
+                    return torch.as_tensor(np.copy(value))
             return value
 
         elif target_backend == "jax":

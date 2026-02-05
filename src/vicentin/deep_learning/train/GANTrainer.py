@@ -23,7 +23,7 @@ class GANTrainer(GenericTrainer):
         noise_dim: int = 100,
         n_imgs_val: int = 64,
         sample_path: str = "gan_samples",
-        export_mode: Literal["save", "show", None] = "show",
+        export_mode: Literal["save", "show", None] = None,
         fixed_z: Optional[torch.Tensor] = None,
         hyperparams: Optional[Dict[str, Any]] = None,
         device: Optional[torch.device] = None,
