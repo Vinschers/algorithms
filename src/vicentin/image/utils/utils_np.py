@@ -345,7 +345,8 @@ def convolve(
             flipped_kernel = np.flip(kernel)
         else:
             if kernel.ndim == 3:
-                flipped_kernel = np.flip(kernel, axis=(0, 1))
+                flip_axes = (1, 2) if channels_first else (0, 1)
+                flipped_kernel = np.flip(kernel, axis=flip_axes)
             else:
                 flipped_kernel = np.flip(kernel)
 

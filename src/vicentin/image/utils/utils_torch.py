@@ -336,10 +336,14 @@ def convolve(
     else:
         k_tsr = torch.as_tensor(kernel)
         if pad_channels:
-            flipped_kernel = torch.flip(k_tsr, dims=tuple(range(k_tsr.ndim)))
+            dims = tuple(range(k_tsr.ndim))
         else:
-            dims = (0, 1) if k_tsr.ndim >= 2 else (0,)
-            flipped_kernel = torch.flip(k_tsr, dims=dims)
+            if channels_first:
+                dims = (1, 2)
+            else:
+                dims = (0, 1)
+
+        flipped_kernel = torch.flip(k_tsr, dims=dims)
 
     return correlate(
         img,

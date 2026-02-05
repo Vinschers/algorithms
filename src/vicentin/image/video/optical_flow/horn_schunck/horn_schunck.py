@@ -1,10 +1,33 @@
-from vicentin.utils import array, isnan, sum, stack, where, zeros_like
+from typing import Any, Optional
+from vicentin.utils import Dispatcher
 
-from vicentin.image.utils import convolve, gaussian_filter
-from vicentin.image.differentiation import grad
+disp_hs = Dispatcher()
+
+try:
+    from .horn_schunck_np import horn_schunck as horn_schunck_np
+
+    disp_hs.register("numpy", horn_schunck_np)
+except (ImportError, ModuleNotFoundError):
+    pass
+
+try:
+    from .horn_schunck_torch import horn_schunck as horn_schunck_torch
+
+    disp_hs.register("torch", horn_schunck_torch)
+except (ImportError, ModuleNotFoundError):
+    pass
 
 
-def horn_schunck(img1, img2, u0, v0, alpha=100, iters=100, blur=1):
+def horn_schunck(
+    img1: Any,
+    img2: Any,
+    u0: Optional[Any] = None,
+    v0: Optional[Any] = None,
+    alpha: float = 100,
+    iters: int = 100,
+    blur: float = 1,
+    backend: Optional[str] = None,
+):
     """
     Computes the optical flow between two images using the Horn-Schunck method.
 
@@ -29,6 +52,8 @@ def horn_schunck(img1, img2, u0, v0, alpha=100, iters=100, blur=1):
         Number of iterations to perform.
     blur : float, optional (default=1)
         Standard deviation for Gaussian smoothing applied to the images before computing derivatives.
+    backend : str, optional (default=None)
+        Force a specific backend.
 
     Returns
     -------
@@ -45,34 +70,18 @@ def horn_schunck(img1, img2, u0, v0, alpha=100, iters=100, blur=1):
     - If initial flow estimates (`u0`, `v0`) are good, convergence is faster.
     """
 
-    H, W = img2.shape[:2]
+    disp_hs.detect_backend(img1, backend)
 
-    img1 = gaussian_filter(img1, blur)
-    img2 = gaussian_filter(img2, blur)
+    args = [img1, img2]
+    if u0 is not None:
+        args.append(u0)
+    if v0 is not None:
+        args.append(v0)
 
-    # Set initial value for the flow vectors
-    u = u0.copy()
-    v = v0.copy()
+    casted_args = disp_hs.cast_values(*args)
 
-    # Estimate spatiotemporal derivatives
-    fx, fy = grad(img1)
-    ft = img2 - img1
+    img1, img2 = casted_args[0], casted_args[1]
+    u0 = casted_args[2] if u0 is not None else None
+    v0 = casted_args[3] if v0 is not None else None
 
-    avg_kernel = array([[1, 2, 1], [2, 0, 2], [1, 2, 1]]) / 12
-
-    for _ in range(iters):
-        # Compute local averages of the flow vectors using kernel_1
-        uAvg = convolve(u, avg_kernel, mode="same")
-        vAvg = convolve(v, avg_kernel, mode="same")
-
-        # Compute flow vectors constrained by its local average and the optical flow constraints
-        aux = (uAvg * fx + vAvg * fy + ft) / (alpha**2 + sum(fx**2 + fy**2))
-
-        u = uAvg - fx * aux
-        v = vAvg - fy * aux
-
-    u = where(isnan(u), zeros_like(u), u)
-    v = where(isnan(v), zeros_like(v), v)
-
-    mvf = stack([v, u], axis=-1)
-    return mvf
+    return disp_hs(img1, img2, u0, v0, alpha, iters, blur)
