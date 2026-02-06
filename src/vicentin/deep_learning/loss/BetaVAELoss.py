@@ -26,7 +26,7 @@ class BetaVAELoss(BaseLoss):
         self.kl_loss = GaussianKLDivergenceLoss()
 
     def forward(self, output, x) -> tuple[torch.Tensor, dict]:
-        mu, logvar, x_hat = output
+        x_hat, mu, logvar = output
 
         reconstruction_loss, reconstruction_metrics = self.reconstruction_loss(
             x_hat, x
