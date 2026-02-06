@@ -85,7 +85,7 @@ print(heap.extract_min())  # Output: 2
 
 ```python
 import torch
-from vicentin.optimization.minimization import newton
+from vicentin.optimization.minimization import newton_method
 
 def objective(x):
     return torch.sum(x**2)
@@ -95,7 +95,7 @@ A = torch.tensor([[1.0, 1.0]])
 b = torch.tensor([1.0])
 
 # Backend (Torch) is automatically detected from x0
-x_opt = newton(objective, x0, equality=(A, b))
+x_opt = newton_method(objective, x0, equality=(A, b))
 print(f"Optimal solution: {x_opt}")
 ```
 
