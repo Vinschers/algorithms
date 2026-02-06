@@ -19,12 +19,16 @@ class GenericTrainer(ABC):
         self,
         models: Dict[str, nn.Module],
         optimizers: Dict[str, torch.optim.Optimizer],
+        schedulers: Optional[
+            Dict[str, torch.optim.lr_scheduler.LRScheduler]
+        ] = None,
         hyperparams: Optional[Dict[str, Any]] = None,
         device: Optional[torch.device] = None,
         float16: bool = False,
     ):
         self.models = models
         self.optimizers = optimizers
+        self.schedulers = schedulers if schedulers else {}
         self.hyperparams = hyperparams if hyperparams else {}
 
         self.device = get_device() if device is None else device
@@ -54,15 +58,28 @@ class GenericTrainer(ABC):
         """
         pass
 
-    def optimize(self, loss: torch.Tensor, optimizer: torch.optim.Optimizer):
+    def optimize(
+        self,
+        loss: torch.Tensor,
+        optimizer: torch.optim.Optimizer,
+        gradient_clipping: Optional[float] = None,
+    ):
         """
         Unified helper to handle Backward + Step.
         Automatically handles AMP scaling if self.use_amp is True.
         Call this inside your train_step instead of loss.backward().
         """
-        optimizer.zero_grad()
 
+        optimizer.zero_grad()
         self.scaler.scale(loss).backward()
+
+        self.scaler.unscale_(optimizer)
+        if gradient_clipping is not None:
+            params = [
+                p for group in optimizer.param_groups for p in group["params"]
+            ]
+            torch.nn.utils.clip_grad_norm_(params, max_norm=gradient_clipping)
+
         self.scaler.step(optimizer)
         self.scaler.update()
 
@@ -246,6 +263,16 @@ class GenericTrainer(ABC):
                 )
 
             all_metrics = self._update_history(train_metrics, val_metrics)
+
+            for scheduler in self.schedulers.values():
+                if isinstance(
+                    scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
+                ):
+                    metric_to_monitor = all_metrics.get(monitor, 0.0)
+                    scheduler.step(metric_to_monitor)
+                else:
+                    scheduler.step()
+
             log_str = " | ".join(
                 [f"{k}: {v:.4f}" for k, v in all_metrics.items()]
             )
