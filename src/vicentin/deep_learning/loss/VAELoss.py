@@ -9,7 +9,7 @@ from vicentin.deep_learning.loss import (
 )
 
 
-class BetaVAELoss(BaseLoss):
+class VAELoss(BaseLoss):
     def __init__(
         self, reconstruction_loss: Optional[nn.Module] = None, beta: float = 1.0
     ):

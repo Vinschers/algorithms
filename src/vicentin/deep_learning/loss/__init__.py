@@ -8,4 +8,6 @@ from .WassersteinGANLoss import (
     WassersteinDiscriminatorLoss,
     WassersteinGeneratorLoss,
 )
-from .BetaVAELoss import BetaVAELoss
+from .VAELoss import VAELoss
+
+from .SupInfoNCE import SupInfoNCELoss

@@ -1,12 +1,12 @@
 import torch
 
 from typing import Dict, Any, Tuple
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from vicentin.deep_learning.train import GenericTrainer
 
 
-class StandardTrainer(GenericTrainer):
+class StandardTrainer(GenericTrainer, ABC):
 
     @abstractmethod
     def compute_loss(
