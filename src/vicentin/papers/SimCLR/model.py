@@ -2,7 +2,7 @@ from typing import Tuple, Optional
 import torch
 import torch.nn as nn
 
-from vicentin.deep_learning.models.siamese import SiameseNetwork
+from vicentin.deep_learning.models import SiameseNetwork
 from vicentin.deep_learning.blocks import MLP
 
 
