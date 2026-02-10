@@ -1,5 +1,5 @@
 [build-system]
-requires = [ "setuptools>=61.0", "wheel",]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,11 +8,27 @@ dynamic = ["version"]
 description = "Personal collection of algorithms."
 readme = "README.md"
 requires-python = ">=3.11, <3.13"
-dependencies = [ "numpy", "scipy", "scikit-image", "networkx"]
-classifiers = [ "Programming Language :: Python :: 3", "Operating System :: OS Independent",]
+dependencies = ["numpy", "scipy"]
+[project.optional-dependencies]
+all = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "networkx",
+    "scikit-image",
+    "scikit-learn",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "matplotlib",
+    "seaborn",
+    "pandas",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 [[project.authors]]
 name = "Felipe Vicentin"
-email = "hello@a.vicentin.xyz"
 
 [project.license]
 text = "MIT License"
@@ -21,18 +37,14 @@ text = "MIT License"
 Homepage = "https://github.com/Vinschers/algorithms"
 
 [tool.setuptools.packages.find]
-where = [ "src",]
-exclude = [ "tests", "docs",]
+where = ["src"]
+exclude = ["tests", "docs"]
 
 [tool.setuptools.dynamic]
-version = {file = "VERSION"}
+version = { file = "VERSION" }
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --cov=vicentin"
-testpaths = [
-    "tests",
-]
-pythonpath = [
-    "src"
-]
+testpaths = ["tests"]
+pythonpath = ["src"]
